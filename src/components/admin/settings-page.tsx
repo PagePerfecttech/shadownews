@@ -492,9 +492,9 @@ export default function SettingsPage() {
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Min Android App Version</Label>
               <Input
-                value={settings.force_update_android || '1.0.9'}
+                value={settings.force_update_android || '1.0.10'}
                 onChange={e => updateSetting('force_update_android', e.target.value)}
-                placeholder="1.0.9"
+                placeholder="1.0.10"
               />
             </div>
             <div className="space-y-1.5">
