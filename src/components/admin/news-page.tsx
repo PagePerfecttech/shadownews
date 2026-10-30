@@ -512,13 +512,33 @@ function NewsFormPage({
   }, [editItemId, loaded])
 
   const handleGenerateAIRewrite = async () => {
-    if (!editItemId) {
-      toast.error('Please save the article first before generating AI rewrite')
+    const rawTitle = (form.title as string)?.trim() || ''
+    const rawContent = (form.content as string)?.trim() || ''
+    const rawShortDesc = (form.shortDesc as string)?.trim() || ''
+
+    if (!rawTitle && !rawContent && !editItemId) {
+      toast.error('Please enter a title or article content before generating AI rewrite')
       return
     }
+
     setGeneratingAI(true)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
+
     try {
-      const res = await authFetch(`/api/admin/news/${editItemId}/ai-rewrite`, { method: 'POST' })
+      const targetId = editItemId || 'draft'
+      const res = await authFetch(`/api/admin/news/${targetId}/ai-rewrite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: rawTitle,
+          content: rawContent,
+          shortDesc: rawShortDesc,
+        }),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+
       const data = await res.json()
       if (res.ok && data.news) {
         setAiState({
@@ -531,9 +551,14 @@ function NewsFormPage({
       } else {
         toast.error(data.error || 'Failed to generate AI rewrite')
       }
-    } catch {
-      toast.error('AI Rewrite generation failed')
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        toast.error('AI Rewrite timed out after 30 seconds. Please try again.')
+      } else {
+        toast.error('AI Rewrite generation failed')
+      }
     } finally {
+      clearTimeout(timeoutId)
       setGeneratingAI(false)
     }
   }
@@ -920,7 +945,7 @@ function NewsFormPage({
                     variant="outline"
                     size="sm"
                     onClick={handleGenerateAIRewrite}
-                    disabled={generatingAI || !editItemId}
+                    disabled={generatingAI || (!editItemId && !form.title && !form.content)}
                     className="border-purple-300 text-purple-700 hover:bg-purple-100 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/40 text-xs font-semibold"
                   >
                     {generatingAI ? (

@@ -50,7 +50,7 @@ Title: ${title}
 Summary: ${shortDesc || ''}
 Content: ${content || shortDesc || title}`
 
-    // Resolve models: dynamically fetch models supported for this API key or use prioritized fallback
+    // Resolve models: prioritized list of active Gemini models (gemini-3.5-flash-lite is fastest)
     const modelsToTry = await getGeminiModelsToTry(apiKey)
     let responseText = ''
 
@@ -62,6 +62,7 @@ Content: ${content || shortDesc || title}`
           headers: {
             'Content-Type': 'application/json',
           },
+          signal: AbortSignal.timeout(12000), // 12-sec max per model to prevent hanging
           body: JSON.stringify({
             contents: [
               {
@@ -80,15 +81,16 @@ Content: ${content || shortDesc || title}`
           const data = await res.json()
           responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
           if (responseText) {
+            console.log(`Gemini rewrite succeeded with model: ${model}`)
             break // Successfully got content
           }
         } else {
           const errText = await res.text()
           console.warn(`Gemini model ${model} returned ${res.status}: ${errText}`)
-          // If 404 (model not found), loop will try next model
+          // If 404, 503, or other error, loop will try next model
         }
-      } catch (err) {
-        console.warn(`Failed call to Gemini model ${model}:`, err)
+      } catch (err: any) {
+        console.warn(`Gemini call to model ${model} failed/timed out:`, err?.message || err)
       }
     }
 
@@ -133,45 +135,48 @@ Content: ${content || shortDesc || title}`
 }
 
 /**
- * Queries Google's models endpoint to find the active models for this API key,
- * or returns a prioritized list of latest Gemini models (including gemini-3.8-flash).
+ * Returns a prioritized list of active Google Gemini models.
+ * Prioritizes fast, non-deprecated models (gemini-3.5-flash-lite, gemini-3.8-flash).
  */
 export async function getGeminiModelsToTry(apiKey: string): Promise<string[]> {
-  const fallbackList = [
+  const preferredModels = [
+    'gemini-3.5-flash-lite',
     'gemini-3.8-flash',
-    'gemini-2.5-flash',
+    'gemini-flash-latest',
     'gemini-1.5-flash',
     'gemini-1.5-pro',
-    'gemini-pro',
   ]
 
   try {
     const listRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-      { method: 'GET' }
+      { method: 'GET', signal: AbortSignal.timeout(5000) }
     )
     if (listRes.ok) {
       const data = await listRes.json()
       if (Array.isArray(data?.models)) {
+        // Exclude known deprecated models that return 404
+        const deprecated = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.0-pro']
         const available = data.models
           .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
           .map((m: any) => m.name.replace(/^models\//, ''))
+          .filter((name: string) => !deprecated.includes(name))
 
-        // Prioritize flash models first, followed by others
-        const flashModels = available.filter((m: string) => m.includes('flash'))
-        const otherModels = available.filter((m: string) => !m.includes('flash'))
-        const combined = [...flashModels, ...otherModels]
+        // Intersect preferred with available, maintaining preferred order
+        const foundPreferred = preferredModels.filter((m: string) => available.includes(m))
+        const remaining = available.filter((m: string) => !preferredModels.includes(m))
+        const ordered = [...foundPreferred, ...remaining]
 
-        if (combined.length > 0) {
-          return combined
+        if (ordered.length > 0) {
+          return ordered
         }
       }
     }
   } catch (e) {
-    // Ignore network error and proceed with fallback list
+    // Ignore network error and proceed with preferred list
   }
 
-  return fallbackList
+  return preferredModels
 }
 
 // Backwards-compatible aliases
@@ -223,6 +228,7 @@ export async function testGeminiConnection(overrideKey?: string): Promise<{
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: AbortSignal.timeout(10000), // 10s max
         body: JSON.stringify({
           contents: [
             {
