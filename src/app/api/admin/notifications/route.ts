@@ -41,33 +41,56 @@ export async function POST(request: NextRequest) {
       try {
         const { messaging } = await import('@/lib/firebase-admin')
         
+        const targetTopic = notification.targetType === 'district' && notification.targetValue
+          ? `district_${notification.targetValue}`
+          : (notification.targetType === 'category' && notification.targetValue
+            ? `category_${notification.targetValue}`
+            : 'all')
+
         const messagePayload: any = {
           notification: {
             title: notification.title,
             body: notification.body,
           },
-          topic: 'all', // For now we send to a global topic 'all'
+          topic: targetTopic,
+          data: {
+            route: notification.newsId ? `/p/${notification.newsId}` : '/feed',
+            newsId: notification.newsId || '',
+          },
+          android: {
+            priority: 'high',
+            notification: {
+              channelId: 'spotnews_default_channel',
+              sound: 'default',
+              priority: 'max',
+            },
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: 'default',
+                badge: 1,
+              },
+            },
+          },
         }
         
         if (notification.imageUrl && notification.imageUrl.startsWith('http')) {
           messagePayload.notification.imageUrl = notification.imageUrl
         }
         
-        if (notification.newsId) {
-          messagePayload.data = {
-            route: `/p/${notification.newsId}`,
-          }
-        }
-        
         await messaging.send(messagePayload)
-        console.log('Firebase notification sent successfully')
-      } catch (fcmError) {
+        console.log(`Firebase notification sent successfully to topic: ${targetTopic}`)
+      } catch (fcmError: any) {
         console.error('Error sending Firebase notification:', fcmError)
         // Update status to failed
         await db.pushNotification.update({
           where: { id: notification.id },
           data: { status: 'failed' }
         })
+        return NextResponse.json({
+          error: `Failed to deliver via Firebase: ${fcmError?.message || 'FCM error'}`
+        }, { status: 500 })
       }
     }
 

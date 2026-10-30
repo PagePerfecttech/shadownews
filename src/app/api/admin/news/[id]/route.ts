@@ -130,33 +130,41 @@ export async function PUT(
 
       // Send push notification if requested
       if (data.sendNotification !== false) {
-          try {
-            const isValidUrl = news.thumbnailUrl && news.thumbnailUrl.startsWith('http')
-            await messaging.send({
-              topic: news.districtId ? `district_${news.districtId}` : `state_${news.stateId}`,
+        try {
+          const isBreaking = news.priority === 'urgent' || news.priority === 'breaking' || news.isFeatured
+          const isValidUrl = news.thumbnailUrl && news.thumbnailUrl.startsWith('http')
+          const targetTopic = isBreaking ? 'all' : (news.districtId ? `district_${news.districtId}` : 'all')
+
+          await messaging.send({
+            topic: targetTopic,
+            notification: {
+              title: isBreaking ? `🚨 బ్రేకింగ్ న్యూస్: ${news.title}` : news.title,
+              body: news.shortDesc || news.title,
+              imageUrl: isValidUrl ? news.thumbnailUrl : undefined,
+            },
+            data: {
+              route: `/p/${news.id}`,
+              newsId: news.id,
+            },
+            android: {
+              priority: 'high',
               notification: {
-                title: news.districtId ? 'New Update in Your District' : 'New Update in Your State',
-                body: news.title,
-                imageUrl: isValidUrl ? news.thumbnailUrl : undefined,
+                channelId: 'spotnews_default_channel',
+                sound: 'default',
+                priority: 'max',
               },
-              data: {
-                route: `/feed?newsId=${news.id}`,
-                newsId: news.id,
-              },
-              android: {
-                notification: {
+            },
+            apns: {
+              payload: {
+                aps: {
                   sound: 'default',
-                }
+                  badge: 1,
+                },
               },
-              apns: {
-                payload: {
-                  aps: {
-                    sound: 'default',
-                  }
-                }
-              }
-            })
-          } catch (fcmError) {
+            },
+          })
+          console.log(`FCM notification sent for news update to topic: ${targetTopic}`)
+        } catch (fcmError) {
           console.error('Failed to send FCM notification:', fcmError)
         }
       }
@@ -221,33 +229,41 @@ export async function PATCH(
 
       // Send push notification if requested
       if (data.sendNotification !== false) {
-          try {
-            const isValidUrl = news.thumbnailUrl && news.thumbnailUrl.startsWith('http')
-            await messaging.send({
-              topic: news.districtId ? `district_${news.districtId}` : `state_${news.stateId}`,
+        try {
+          const isBreaking = news.priority === 'urgent' || news.priority === 'breaking' || news.isFeatured
+          const isValidUrl = news.thumbnailUrl && news.thumbnailUrl.startsWith('http')
+          const targetTopic = isBreaking ? 'all' : (news.districtId ? `district_${news.districtId}` : 'all')
+
+          await messaging.send({
+            topic: targetTopic,
+            notification: {
+              title: isBreaking ? `🚨 బ్రేకింగ్ న్యూస్: ${news.title}` : news.title,
+              body: news.shortDesc || news.title,
+              imageUrl: isValidUrl ? news.thumbnailUrl : undefined,
+            },
+            data: {
+              route: `/p/${news.id}`,
+              newsId: news.id,
+            },
+            android: {
+              priority: 'high',
               notification: {
-                title: news.districtId ? 'New Update in Your District' : 'New Update in Your State',
-                body: news.title,
-                imageUrl: isValidUrl ? news.thumbnailUrl : undefined,
+                channelId: 'spotnews_default_channel',
+                sound: 'default',
+                priority: 'max',
               },
-              data: {
-                route: `/feed?newsId=${news.id}`,
-                newsId: news.id,
-              },
-              android: {
-                notification: {
+            },
+            apns: {
+              payload: {
+                aps: {
                   sound: 'default',
-                }
+                  badge: 1,
+                },
               },
-              apns: {
-                payload: {
-                  aps: {
-                    sound: 'default',
-                  }
-                }
-              }
-            })
-          } catch (fcmError) {
+            },
+          })
+          console.log(`FCM notification sent for news update to topic: ${targetTopic}`)
+        } catch (fcmError) {
           console.error('Failed to send FCM notification:', fcmError)
         }
       }

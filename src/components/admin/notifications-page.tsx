@@ -40,6 +40,7 @@ const statusColors: Record<string, string> = {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [testingNotification, setTestingNotification] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<Record<string, unknown>>({
     title: '', body: '', imageUrl: '', targetType: 'all',
@@ -79,6 +80,23 @@ export default function NotificationsPage() {
     } catch { toast.error('Failed to delete') }
   }
 
+  const handleSendTestNotification = async () => {
+    setTestingNotification(true)
+    try {
+      const res = await authFetch('/api/admin/notifications/test', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success('Test notification sent successfully to topic "all"!')
+      } else {
+        toast.error(data.error || 'Failed to send test notification')
+      }
+    } catch {
+      toast.error('Network error sending test notification')
+    } finally {
+      setTestingNotification(false)
+    }
+  }
+
   const targetLabels: Record<string, string> = {
     all: 'All Users',
     district: 'By District',
@@ -92,9 +110,20 @@ export default function NotificationsPage() {
           <h1 className="text-2xl font-bold">Push Notifications</h1>
           <p className="text-sm text-muted-foreground">{notifications.length} notifications</p>
         </div>
-        <Button className="bg-red-600 hover:bg-red-700" onClick={() => { setForm({ title: '', body: '', imageUrl: '', targetType: 'all', targetValue: '', newsId: '', scheduledAt: '', sendNow: true }); setDialogOpen(true) }}>
-          <Plus className="h-4 w-4 mr-2" /> Create Notification
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="border-red-200 text-red-600 hover:bg-red-50"
+            onClick={handleSendTestNotification}
+            disabled={testingNotification}
+          >
+            <Bell className="h-4 w-4 mr-2" />
+            {testingNotification ? 'Sending Test...' : 'Send Test Notification'}
+          </Button>
+          <Button className="bg-red-600 hover:bg-red-700" onClick={() => { setForm({ title: '', body: '', imageUrl: '', targetType: 'all', targetValue: '', newsId: '', scheduledAt: '', sendNow: true }); setDialogOpen(true) }}>
+            <Plus className="h-4 w-4 mr-2" /> Create Notification
+          </Button>
+        </div>
       </div>
 
       <Card className="border-0 shadow-sm">

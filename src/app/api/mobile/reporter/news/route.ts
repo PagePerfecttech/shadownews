@@ -130,9 +130,30 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Upload up to 5 images
-      for (let i = 0; i < Math.min(candidateFiles.length, 5); i++) {
-        const uploadedUrl = await uploadFileToR2(candidateFiles[i], `reporter-img-${i + 1}`)
+      // Handle direct uploaded image URLs (via presigned Cloudflare R2 upload)
+      const directImages = formData.getAll('imagesUrls') as string[]
+      for (const u of directImages) {
+        if (typeof u === 'string' && u.startsWith('http') && allImageUrls.length < 5 && !allImageUrls.includes(u)) {
+          allImageUrls.push(u)
+        }
+      }
+      const directImagesJson = formData.get('imagesUrlsJson') as string | null
+      if (directImagesJson) {
+        try {
+          const parsed = JSON.parse(directImagesJson)
+          if (Array.isArray(parsed)) {
+            for (const u of parsed) {
+              if (typeof u === 'string' && u.startsWith('http') && allImageUrls.length < 5 && !allImageUrls.includes(u)) {
+                allImageUrls.push(u)
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // Upload up to remaining slots for images
+      for (let i = 0; i < Math.min(candidateFiles.length, 5 - allImageUrls.length); i++) {
+        const uploadedUrl = await uploadFileToR2(candidateFiles[i], `reporter-img-${allImageUrls.length + 1}`)
         allImageUrls.push(uploadedUrl)
       }
 
