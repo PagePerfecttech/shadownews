@@ -1,3 +1,3 @@
-import { generateAINewsRewrite } from './openai-service'
+import { generateGrokNewsRewrite } from './grok-service'
 
-export { generateAINewsRewrite }
+export const generateAINewsRewrite = generateGrokNewsRewrite

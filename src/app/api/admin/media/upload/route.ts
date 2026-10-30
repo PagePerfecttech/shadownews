@@ -18,39 +18,61 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    const allowedTypes = [
+    const allowedImageTypes = [
       'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
-      'video/mp4', 'video/webm',
     ]
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: 'File type not allowed' }, { status: 400 })
+    const allowedVideoTypes = [
+      'video/mp4', 'video/webm', 'video/quicktime', 'video/3gpp', 'video/x-matroska',
+      'video/mpeg', 'video/avi', 'video/x-msvideo', 'video/ogg',
+    ]
+    const allowedExtensions = [
+      '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg',
+      '.mp4', '.webm', '.mov', '.3gp', '.mkv', '.avi', '.ogg'
+    ]
+
+    const fileExt = path.extname(file.name).toLowerCase()
+    const isImage = allowedImageTypes.includes(file.type) || file.type.startsWith('image/') || ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'].includes(fileExt)
+    const isVideo = allowedVideoTypes.includes(file.type) || file.type.startsWith('video/') || ['.mp4', '.webm', '.mov', '.3gp', '.mkv', '.avi', '.ogg'].includes(fileExt)
+
+    if (!isImage && !isVideo) {
+      return NextResponse.json({
+        error: `File type '${file.type || fileExt}' is not allowed. Supported: images and videos (.mp4, .mov, .webm, .3gp)`
+      }, { status: 400 })
     }
 
-    // Validate file size (10MB max)
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File too large (max 10MB)' }, { status: 400 })
+    // Validate file size: 100MB for video, 25MB for image
+    const maxSizeBytes = isVideo ? 100 * 1024 * 1024 : 25 * 1024 * 1024
+    const maxLimitLabel = isVideo ? '100MB' : '25MB'
+    if (file.size > maxSizeBytes) {
+      return NextResponse.json({
+        error: `File too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed for ${isVideo ? 'video' : 'images'} is ${maxLimitLabel}.`
+      }, { status: 400 })
     }
 
     // Generate unique filename
-    const ext = path.extname(file.name) || (file.type.startsWith('image/') ? '.jpg' : '.mp4')
+    const ext = fileExt || (isImage ? '.jpg' : '.mp4')
     const timestamp = Date.now()
     const randomStr = Math.random().toString(36).substring(2, 8)
     const filename = `${timestamp}-${randomStr}${ext}`
 
     // Upload to Cloudflare R2
     const buffer = Buffer.from(await file.arrayBuffer())
+    const effectiveContentType = file.type && file.type !== 'application/octet-stream'
+      ? file.type
+      : (isVideo ? 'video/mp4' : 'image/jpeg')
+
     await s3Client.send(
       new PutObjectCommand({
         Bucket: R2_BUCKET,
         Key: filename,
         Body: buffer,
-        ContentType: file.type,
+        ContentType: effectiveContentType,
       })
     )
 
     // Generate URLs
     const originalUrl = `${R2_PUBLIC_URL}/${filename}`
-    const thumbnailUrl = file.type.startsWith('image/') ? originalUrl : null
+    const thumbnailUrl = isImage ? originalUrl : null
 
     // Save to media library in database
     const media = await db.media.create({
@@ -58,7 +80,7 @@ export async function POST(request: NextRequest) {
         filename: file.name,
         originalUrl,
         thumbnailUrl,
-        mimeType: file.type,
+        mimeType: effectiveContentType,
         size: file.size,
         alt: file.name,
         uploadedBy: formData.get('uploadedBy') as string || null,

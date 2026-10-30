@@ -48,13 +48,12 @@ export default function MediaPage() {
     let failCount = 0
 
     for (const file of Array.from(files)) {
-      // Validate
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm']
-      if (!allowedTypes.includes(file.type)) {
-        failCount++
-        continue
-      }
-      if (file.size > 10 * 1024 * 1024) {
+      const ext = (file.name.split('.').pop() || '').toLowerCase()
+      const isVideo = file.type.startsWith('video/') || ['mp4', 'webm', 'mov', '3gp', 'mkv', 'avi'].includes(ext)
+      const maxSize = isVideo ? 100 * 1024 * 1024 : 25 * 1024 * 1024
+
+      if (file.size > maxSize) {
+        toast.error(`"${file.name}" exceeds ${isVideo ? '100MB' : '25MB'} limit`)
         failCount++
         continue
       }
@@ -63,8 +62,13 @@ export default function MediaPage() {
         const formData = new FormData()
         formData.append('file', file)
         const res = await authFetch('/api/admin/media/upload', { method: 'POST', body: formData })
-        if (res.ok) successCount++
-        else failCount++
+        if (res.ok) {
+          successCount++
+        } else {
+          const errData = await res.json().catch(() => ({ error: 'Upload failed' }))
+          toast.error(errData.error || `Upload failed for ${file.name}`)
+          failCount++
+        }
       } catch {
         failCount++
       }
@@ -142,11 +146,10 @@ export default function MediaPage() {
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
-          dragActive
+        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${dragActive
             ? 'border-red-500 bg-red-50 dark:bg-red-950/20'
             : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
-        }`}
+          }`}
         onClick={() => fileInputRef.current?.click()}
       >
         <Upload className={`h-10 w-10 mx-auto mb-3 ${dragActive ? 'text-red-500' : 'text-gray-400'}`} />

@@ -102,7 +102,8 @@ export async function POST(request: NextRequest) {
     }
 
     let title, shortDesc, categoryId, stateId, districtId, mandalId, thumbnailUrl, videoUrl, thumbnailBase64;
-    
+    const allImageUrls: string[] = []
+
     const contentType = request.headers.get('content-type') || '';
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
@@ -112,12 +113,34 @@ export async function POST(request: NextRequest) {
       stateId = formData.get('stateId') as string;
       districtId = formData.get('districtId') as string;
       mandalId = formData.get('mandalId') as string;
-      
-      const file = formData.get('file');
-      if (file && typeof file === 'object' && 'size' in file && (file as File).size > 0) {
-         thumbnailUrl = await uploadFileToR2(file as File, 'reporter-thumb');
+
+      // Handle multiple images (1 to 5 images)
+      const rawFiles = formData.getAll('files') as File[]
+      const singleFile = formData.get('file') as File | null
+      const candidateFiles: File[] = []
+
+      for (const f of rawFiles) {
+        if (f && typeof f === 'object' && 'size' in f && f.size > 0) {
+          candidateFiles.push(f)
+        }
+      }
+      if (singleFile && typeof singleFile === 'object' && 'size' in singleFile && singleFile.size > 0) {
+        if (!candidateFiles.some(f => f.name === singleFile.name && f.size === singleFile.size)) {
+          candidateFiles.unshift(singleFile)
+        }
+      }
+
+      // Upload up to 5 images
+      for (let i = 0; i < Math.min(candidateFiles.length, 5); i++) {
+        const uploadedUrl = await uploadFileToR2(candidateFiles[i], `reporter-img-${i + 1}`)
+        allImageUrls.push(uploadedUrl)
+      }
+
+      if (allImageUrls.length > 0) {
+        thumbnailUrl = allImageUrls[0]
       } else {
-         thumbnailUrl = formData.get('thumbnailUrl') as string | null;
+        thumbnailUrl = formData.get('thumbnailUrl') as string | null;
+        if (thumbnailUrl) allImageUrls.push(thumbnailUrl)
       }
 
       const videoFile = formData.get('videoFile');
@@ -137,6 +160,14 @@ export async function POST(request: NextRequest) {
       thumbnailBase64 = data.thumbnailBase64;
       thumbnailUrl = data.thumbnailUrl;
       videoUrl = data.videoUrl;
+      if (Array.isArray(data.imagesUrls)) {
+        for (const u of data.imagesUrls) {
+          if (typeof u === 'string' && allImageUrls.length < 5) allImageUrls.push(u)
+        }
+      }
+      if (thumbnailUrl && !allImageUrls.includes(thumbnailUrl) && allImageUrls.length < 5) {
+        allImageUrls.unshift(thumbnailUrl)
+      }
     }
 
     if (!title || !categoryId) {
@@ -229,7 +260,8 @@ export async function POST(request: NextRequest) {
         stateId,
         districtId: districtId || reporter.districtId,
         mandalId: mandalId || reporter.mandalId || null,
-        thumbnailUrl: thumbnailUrl || '',
+        thumbnailUrl: thumbnailUrl || (allImageUrls[0] || ''),
+        imagesUrls: JSON.stringify(allImageUrls),
         videoUrl,
         sourceType: 'reporter',
         reporterId: reporter.id,

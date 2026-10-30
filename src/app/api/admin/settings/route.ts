@@ -28,8 +28,8 @@ export async function PUT(request: NextRequest) {
     const updates = Object.entries(data).map(([key, value]) =>
       db.setting.upsert({
         where: { key },
-        update: { value: String(value) },
-        create: { key, value: String(value) },
+        update: { value: value === null || value === undefined ? '' : String(value) },
+        create: { key, value: value === null || value === undefined ? '' : String(value) },
       })
     )
 

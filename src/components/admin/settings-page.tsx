@@ -9,56 +9,76 @@ import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { Settings, Shield, Wrench, MessageSquare, Moon, Video as VideoIcon, Bell, Bookmark, Share, Save, Megaphone, Youtube, Coins, Trash2, Clock, Sparkles } from 'lucide-react'
-import { authFetch, authFetchJSON, authFetchJson } from '@/lib/utils'
+import {
+  Settings, Shield, Wrench, MessageSquare, Moon, Video as VideoIcon,
+  Bell, Bookmark, Share, Save, Megaphone, Youtube, Coins, Trash2,
+  Clock, Sparkles, CheckCircle2, AlertTriangle, RefreshCw
+} from 'lucide-react'
+import { authFetch, authFetchJson } from '@/lib/utils'
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [runningCleanup, setRunningCleanup] = useState(false)
 
   const fetchSettings = useCallback(async () => {
     try {
+      setLoading(true)
       const data = await authFetchJson<Record<string, string>>('/api/admin/settings')
-      setSettings(data)
-    } catch { toast.error('Failed to load settings') }
-    finally { setLoading(false) }
+      setSettings(data || {})
+    } catch {
+      toast.error('Failed to load settings')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  useEffect(() => { fetchSettings() }, [fetchSettings])
+  useEffect(() => {
+    fetchSettings()
+  }, [fetchSettings])
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      await authFetchJSON('/api/admin/settings', {
+      const res = await authFetch('/api/admin/settings', {
         method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
       })
-      toast.success('Settings saved successfully')
-    } catch { toast.error('Failed to save settings') }
-    finally { setSaving(false) }
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to save settings' }))
+        throw new Error(errorData.error || `Error status: ${res.status}`)
+      }
+
+      toast.success('Settings saved successfully and applied!')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save settings')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const updateSetting = (key: string, value: string) => {
     setSettings(prev => ({ ...prev, [key]: value }))
   }
 
-  const [runningCleanup, setRunningCleanup] = useState(false)
-
   const handleManualCleanup = async () => {
     const days = parseInt(settings.auto_delete_days || '0', 10)
     if (isNaN(days) || days <= 0) {
-      toast.error('Please set Auto Delete Days greater than 0 first')
+      toast.error('Please select Auto Delete Days (greater than 0) first')
       return
     }
     setRunningCleanup(true)
     try {
       const res = await authFetchJson<{ success: boolean; message: string }>('/api/admin/news/auto-delete', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ days }),
       })
       if (res.success) {
-        toast.success(res.message)
+        toast.success(res.message || 'Auto-delete cleanup completed')
       } else {
         toast.error('Auto-delete cleanup failed')
       }
@@ -70,75 +90,386 @@ export default function SettingsPage() {
   }
 
   if (loading) {
-    return <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-40 bg-muted animate-pulse rounded-xl" />)}</div>
+    return (
+      <div className="space-y-4 max-w-4xl">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-44 bg-muted animate-pulse rounded-xl" />
+        ))}
+      </div>
+    )
   }
 
   const featureFlags = [
-    { key: 'feature_comments', label: 'Comments', desc: 'Allow users to comment on articles', icon: MessageSquare },
-    { key: 'feature_dark_mode', label: 'Dark Mode', desc: 'Enable dark mode toggle in app', icon: Moon },
-    { key: 'feature_video_section', label: 'Video Section', desc: 'Show video section in app', icon: VideoIcon },
-    { key: 'feature_notifications', label: 'Push Notifications', desc: 'Enable push notifications', icon: Bell },
-    { key: 'feature_bookmarks', label: 'Bookmarks', desc: 'Allow users to bookmark articles', icon: Bookmark },
-    { key: 'feature_share', label: 'Share', desc: 'Allow users to share articles', icon: Share },
+    { key: 'feature_comments', label: 'Comments', desc: 'Allow readers to comment on articles', icon: MessageSquare },
+    { key: 'feature_dark_mode', label: 'Dark Mode', desc: 'Enable dark theme switch in app', icon: Moon },
+    { key: 'feature_video_section', label: 'Video Shorts Section', desc: 'Show vertical video shorts tab in app', icon: VideoIcon },
+    { key: 'feature_notifications', label: 'Push Notifications', desc: 'Enable FCM breaking news alerts', icon: Bell },
+    { key: 'feature_bookmarks', label: 'Bookmarks', desc: 'Allow readers to save bookmarks', icon: Bookmark },
+    { key: 'feature_share', label: 'Share', desc: 'Allow readers to share news to WhatsApp & socials', icon: Share },
   ]
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 max-w-4xl pb-16">
+      {/* Header with Sticky Save Button */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-background/95 backdrop-blur sticky top-0 z-10 py-3 border-b">
         <div>
-          <h1 className="text-2xl font-bold">App Settings</h1>
-          <p className="text-sm text-muted-foreground">Remote config & feature flags</p>
+          <h1 className="text-2xl font-bold tracking-tight">System & App Settings</h1>
+          <p className="text-sm text-muted-foreground">Configure xAI Grok, AdMob, Reporter Rewards, and App Controls</p>
         </div>
-        <Button className="bg-red-600 hover:bg-red-700" onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? 'Saving...' : 'Save All'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={fetchSettings} disabled={loading || saving}>
+            <RefreshCw className="h-4 w-4 mr-1.5" />
+            Reload
+          </Button>
+          <Button className="bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={handleSave} disabled={saving}>
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
       </div>
 
-      {/* Force Update */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Shield className="h-5 w-5 text-red-600" /> Force Update</CardTitle>
-          <CardDescription>Set minimum app versions and force update behavior</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Min Android Version</Label>
-              <Input value={settings.force_update_android || '1.0.0'} onChange={e => updateSetting('force_update_android', e.target.value)} placeholder="1.0.0" />
-            </div>
-            <div className="space-y-2">
-              <Label>Min iOS Version</Label>
-              <Input value={settings.force_update_ios || '1.0.0'} onChange={e => updateSetting('force_update_ios', e.target.value)} placeholder="1.0.0" />
-            </div>
+      {/* 1. xAI Grok AI Integration */}
+      <Card className="border border-red-100 shadow-sm">
+        <CardHeader className="bg-gradient-to-r from-red-50/50 to-orange-50/50 pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-red-600" />
+              xAI Grok AI Integration
+            </CardTitle>
+            {settings.grok_api_key || settings.xai_api_key ? (
+              <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Configured
+              </span>
+            ) : (
+              <span className="flex items-center text-xs font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Not Configured
+              </span>
+            )}
           </div>
-          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-            <div><Label className="font-medium">Hard Block</Label><p className="text-xs text-muted-foreground">Block app access for outdated versions</p></div>
-            <Switch checked={settings.force_update_hard_block === 'true'} onCheckedChange={v => updateSetting('force_update_hard_block', String(v))} />
+          <CardDescription>
+            Uses xAI Grok-2 (<code>grok-2-latest</code>) to automatically rewrite and proofread Telugu news submissions into high-impact journalistic Telugu.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-4">
+          <div className="space-y-2">
+            <Label className="font-semibold text-sm">xAI Grok API Key</Label>
+            <Input
+              type="password"
+              value={settings.grok_api_key || settings.xai_api_key || ''}
+              onChange={e => {
+                updateSetting('grok_api_key', e.target.value)
+                updateSetting('xai_api_key', e.target.value)
+              }}
+              placeholder="xai-..."
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-muted-foreground">
+              Obtain your key from the xAI Console (<strong>console.x.ai</strong>). Replaces legacy OpenAI models with Grok AI.
+            </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Feature Flags */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Settings className="h-5 w-5 text-red-600" /> Feature Flags</CardTitle>
-          <CardDescription>Toggle app features remotely</CardDescription>
+      {/* 2. Reporter Rewards, Coins & Limits (Consolidated Single Source of Truth) */}
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Coins className="h-5 w-5 text-red-600" />
+            Reporter Rewards, Wallet & Submission Limits
+          </CardTitle>
+          <CardDescription>
+            Configure reward rates credited to reporter wallets upon news article approval, daily posting limits, and promotion criteria.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-6 pt-2">
+          {/* Article Approval Rewards */}
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-3">Approval Payout Rates (Rupees ₹)</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5 p-3.5 rounded-lg border bg-muted/30">
+                <Label className="font-medium text-xs text-muted-foreground">Junior Reporter Payout (₹ per post)</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-bold text-gray-700">₹</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={settings.reward_junior_article || '3'}
+                    onChange={e => updateSetting('reward_junior_article', e.target.value)}
+                    className="font-bold"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Standard approved post reward for Junior Reporters</p>
+              </div>
+
+              <div className="space-y-1.5 p-3.5 rounded-lg border bg-muted/30">
+                <Label className="font-medium text-xs text-muted-foreground">Senior Reporter Payout (₹ per post)</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-bold text-gray-700">₹</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={settings.reward_senior_article || '5'}
+                    onChange={e => updateSetting('reward_senior_article', e.target.value)}
+                    className="font-bold"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Higher payout rate for promoted Senior Reporters</p>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Daily Submission Limits */}
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-3">Daily Submission Caps</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Junior Daily Post Limit</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={settings.limit_junior_daily || '15'}
+                  onChange={e => updateSetting('limit_junior_daily', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Max news articles per day for Junior Reporters (Crime category is exempt)</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Senior Daily Post Limit</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={settings.limit_senior_daily || '30'}
+                  onChange={e => updateSetting('limit_senior_daily', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Max news articles per day for Senior Reporters (Crime category is exempt)</p>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Coins Conversion & Promotion Thresholds */}
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-3">Coin Conversion & Rank Promotion Criteria</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Coins Equivalent to ₹1</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={settings.COINS_PER_INR || '100'}
+                  onChange={e => updateSetting('COINS_PER_INR', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">e.g., 100 coins = ₹1 INR</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Promotion Score Threshold</Label>
+                <Input
+                  type="number"
+                  min="10"
+                  value={settings.promotion_score_threshold || '100'}
+                  onChange={e => updateSetting('promotion_score_threshold', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Min Performance Score for Senior eligibility</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Demotion Score Threshold</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={settings.demotion_score_threshold || '40'}
+                  onChange={e => updateSetting('demotion_score_threshold', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Score below which demotion is recommended</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 3. Ad Management & Custom Sponsor Ads */}
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Megaphone className="h-5 w-5 text-red-600" />
+            Ad Management (Google AdMob & Custom Sponsor Ads)
+          </CardTitle>
+          <CardDescription>Configure Google AdMob unit IDs and direct sponsor banners for the mobile news feed.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 pt-2">
+          {/* Global AdMob Controls */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3.5 bg-muted/40 rounded-lg border">
+              <div>
+                <Label className="font-medium text-sm">Enable AdMob Feed Ads</Label>
+                <p className="text-xs text-muted-foreground">Display Google AdMob native cards within the news shorts feed</p>
+              </div>
+              <Switch
+                checked={settings.admob_feed_enabled !== 'false'}
+                onCheckedChange={v => updateSetting('admob_feed_enabled', String(v))}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Feed Ad Frequency</Label>
+                <Input
+                  type="number"
+                  min="2"
+                  max="20"
+                  value={settings.admob_feed_frequency || '4'}
+                  onChange={e => updateSetting('admob_feed_frequency', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Number of news shorts between ad cards (e.g. 4)</p>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Android AdMob Unit IDs */}
+          <div>
+            <h4 className="text-sm font-semibold mb-3">AdMob IDs (Android)</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Native Ad ID</Label>
+                <Input
+                  value={settings.admob_native_id_android || ''}
+                  onChange={e => updateSetting('admob_native_id_android', e.target.value)}
+                  placeholder="ca-app-pub-3940256099942544/2247696110"
+                  className="font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Banner Ad ID</Label>
+                <Input
+                  value={settings.admob_banner_id_android || ''}
+                  onChange={e => updateSetting('admob_banner_id_android', e.target.value)}
+                  placeholder="ca-app-pub-3940256099942544/6300978111"
+                  className="font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Interstitial Ad ID</Label>
+                <Input
+                  value={settings.admob_interstitial_id_android || ''}
+                  onChange={e => updateSetting('admob_interstitial_id_android', e.target.value)}
+                  placeholder="ca-app-pub-3940256099942544/1033173712"
+                  className="font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">App Open Ad ID</Label>
+                <Input
+                  value={settings.admob_app_open_id_android || ''}
+                  onChange={e => updateSetting('admob_app_open_id_android', e.target.value)}
+                  placeholder="ca-app-pub-3940256099942544/9257399415"
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* iOS AdMob Unit IDs */}
+          <div>
+            <h4 className="text-sm font-semibold mb-3">AdMob IDs (iOS)</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Native Ad ID</Label>
+                <Input
+                  value={settings.admob_native_id_ios || ''}
+                  onChange={e => updateSetting('admob_native_id_ios', e.target.value)}
+                  placeholder="ca-app-pub-..."
+                  className="font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Banner Ad ID</Label>
+                <Input
+                  value={settings.admob_banner_id_ios || ''}
+                  onChange={e => updateSetting('admob_banner_id_ios', e.target.value)}
+                  placeholder="ca-app-pub-..."
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Custom Sponsor Banner */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold">Custom Sponsor Direct Ads</h4>
+            <div className="flex items-center justify-between p-3.5 bg-muted/40 rounded-lg border">
+              <div>
+                <Label className="font-medium text-sm">Enable Custom Sponsor Banner</Label>
+                <p className="text-xs text-muted-foreground">Overrides bottom AdMob banner with direct advertiser image banner</p>
+              </div>
+              <Switch
+                checked={settings.custom_banner_enabled === 'true'}
+                onCheckedChange={v => updateSetting('custom_banner_enabled', String(v))}
+              />
+            </div>
+            {settings.custom_banner_enabled === 'true' && (
+              <div className="grid grid-cols-1 gap-3 pt-1">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Banner Image URL</Label>
+                  <Input
+                    value={settings.custom_banner_image_url || ''}
+                    onChange={e => updateSetting('custom_banner_image_url', e.target.value)}
+                    placeholder="https://.../sponsor-banner.jpg"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Click Target Link URL</Label>
+                  <Input
+                    value={settings.custom_banner_link_url || ''}
+                    onChange={e => updateSetting('custom_banner_link_url', e.target.value)}
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 4. App Features & Remote Flags */}
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Settings className="h-5 w-5 text-red-600" />
+            App Feature Flags
+          </CardTitle>
+          <CardDescription>Enable or disable specific features dynamically across mobile devices.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 pt-2">
           {featureFlags.map((flag, i) => {
             const Icon = flag.icon
             return (
               <div key={flag.key}>
-                <div className="flex items-center justify-between py-3">
+                <div className="flex items-center justify-between py-2.5">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-muted rounded-lg"><Icon className="h-4 w-4" /></div>
+                    <div className="p-2 bg-muted rounded-lg text-muted-foreground">
+                      <Icon className="h-4 w-4" />
+                    </div>
                     <div>
-                      <Label className="font-medium">{flag.label}</Label>
+                      <Label className="font-medium text-sm">{flag.label}</Label>
                       <p className="text-xs text-muted-foreground">{flag.desc}</p>
                     </div>
                   </div>
-                  <Switch checked={settings[flag.key] !== 'false'} onCheckedChange={v => updateSetting(flag.key, String(v))} />
+                  <Switch
+                    checked={settings[flag.key] !== 'false'}
+                    onCheckedChange={v => updateSetting(flag.key, String(v))}
+                  />
                 </div>
                 {i < featureFlags.length - 1 && <Separator />}
               </div>
@@ -147,277 +478,63 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* YouTube Shorts Settings */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Youtube className="h-5 w-5 text-red-600" /> YouTube Shorts Integration</CardTitle>
-          <CardDescription>Connect YouTube channel for auto-publishing videos</CardDescription>
+      {/* 5. Force Update & App Versions */}
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Shield className="h-5 w-5 text-red-600" />
+            Version Management & Force Update
+          </CardTitle>
+          <CardDescription>Enforce minimum app version requirements to prompt users to update from Play Store.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+        <CardContent className="space-y-4 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Min Android App Version</Label>
+              <Input
+                value={settings.force_update_android || '1.0.9'}
+                onChange={e => updateSetting('force_update_android', e.target.value)}
+                placeholder="1.0.9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Min iOS App Version</Label>
+              <Input
+                value={settings.force_update_ios || '1.0.0'}
+                onChange={e => updateSetting('force_update_ios', e.target.value)}
+                placeholder="1.0.0"
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between p-3.5 bg-muted/40 rounded-lg border">
             <div>
-              <Label className="font-medium">Connection Status</Label>
-              <p className="text-xs text-muted-foreground">
-                {settings.YOUTUBE_REFRESH_TOKEN ? 'Connected (Refresh token found)' : 'Not Connected'}
-              </p>
+              <Label className="font-medium text-sm">Hard Block Outdated Versions</Label>
+              <p className="text-xs text-muted-foreground">Strictly prevent app usage until updated via Google Play Store</p>
             </div>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                const res = await authFetchJson<{ url: string }>('/api/admin/youtube/auth')
-                if (res.url) {
-                  window.location.href = res.url
-                }
-              }}
-            >
-              Connect YouTube
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Reward Tiers Settings */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Coins className="h-5 w-5 text-red-600" /> Reporter Reward Tiers</CardTitle>
-          <CardDescription>Configure how many coins reporters earn</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Coins for Article/News Approval (per post)</Label>
-              <Input 
-                type="number"
-                value={settings.REWARD_ARTICLE || settings.NEWS_APPROVAL_COINS || '2'} 
-                onChange={e => {
-                  updateSetting('REWARD_ARTICLE', e.target.value)
-                  updateSetting('NEWS_APPROVAL_COINS', e.target.value)
-                }} 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Coins for Video Approval</Label>
-              <Input 
-                type="number"
-                value={settings.VIDEO_APPROVAL_COINS || '20'} 
-                onChange={e => updateSetting('VIDEO_APPROVAL_COINS', e.target.value)} 
-              />
-            </div>
-          </div>
-          <div className="space-y-2 pt-2">
-            <Label>Coins equivalent to 1 INR</Label>
-            <p className="text-xs text-muted-foreground">e.g., 5 means 5 coins = 1 INR</p>
-            <Input 
-              type="number"
-              step="1"
-              value={settings.COINS_PER_INR || '100'} 
-              onChange={e => updateSetting('COINS_PER_INR', e.target.value)} 
+            <Switch
+              checked={settings.force_update_hard_block === 'true'}
+              onCheckedChange={v => updateSetting('force_update_hard_block', String(v))}
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Ad Management */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Megaphone className="h-5 w-5 text-red-600" /> Ad Management</CardTitle>
-          <CardDescription>Configure Google AdMob IDs and Custom Ads</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <h3 className="font-semibold text-sm">Global Ad Settings</h3>
-            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-              <div><Label className="font-medium">Enable AdMob Feed Ads</Label><p className="text-xs text-muted-foreground">Show native ads in the news feed</p></div>
-              <Switch checked={settings.admob_feed_enabled !== 'false'} onCheckedChange={v => updateSetting('admob_feed_enabled', String(v))} />
-            </div>
-            <div className="grid grid-cols-1 gap-2 pt-2">
-              <Label>Ad Feed Frequency (Posts between ads)</Label>
-              <Input type="number" value={settings.admob_feed_frequency || '4'} onChange={e => updateSetting('admob_feed_frequency', e.target.value)} />
-            </div>
-          </div>
-          
-          <Separator />
-          
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm">AdMob IDs (Android)</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>App Open ID</Label><Input value={settings.admob_app_open_id_android || ''} onChange={e => updateSetting('admob_app_open_id_android', e.target.value)} placeholder="ca-app-pub-..." /></div>
-              <div className="space-y-2"><Label>Native ID</Label><Input value={settings.admob_native_id_android || ''} onChange={e => updateSetting('admob_native_id_android', e.target.value)} placeholder="ca-app-pub-..." /></div>
-              <div className="space-y-2"><Label>Interstitial ID</Label><Input value={settings.admob_interstitial_id_android || ''} onChange={e => updateSetting('admob_interstitial_id_android', e.target.value)} placeholder="ca-app-pub-..." /></div>
-              <div className="space-y-2"><Label>Banner ID</Label><Input value={settings.admob_banner_id_android || ''} onChange={e => updateSetting('admob_banner_id_android', e.target.value)} placeholder="ca-app-pub-..." /></div>
-            </div>
-          </div>
-
-          <Separator />
-          
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm">AdMob IDs (iOS)</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>App Open ID</Label><Input value={settings.admob_app_open_id_ios || ''} onChange={e => updateSetting('admob_app_open_id_ios', e.target.value)} placeholder="ca-app-pub-..." /></div>
-              <div className="space-y-2"><Label>Native ID</Label><Input value={settings.admob_native_id_ios || ''} onChange={e => updateSetting('admob_native_id_ios', e.target.value)} placeholder="ca-app-pub-..." /></div>
-              <div className="space-y-2"><Label>Interstitial ID</Label><Input value={settings.admob_interstitial_id_ios || ''} onChange={e => updateSetting('admob_interstitial_id_ios', e.target.value)} placeholder="ca-app-pub-..." /></div>
-              <div className="space-y-2"><Label>Banner ID</Label><Input value={settings.admob_banner_id_ios || ''} onChange={e => updateSetting('admob_banner_id_ios', e.target.value)} placeholder="ca-app-pub-..." /></div>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm">Custom Sponsor Banner (Overrides AdMob Banner)</h3>
-            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-              <div><Label className="font-medium">Enable Custom Banner</Label><p className="text-xs text-muted-foreground">Show your own banner image at the bottom of the feed instead of AdMob</p></div>
-              <Switch checked={settings.custom_banner_enabled === 'true'} onCheckedChange={v => updateSetting('custom_banner_enabled', String(v))} />
-            </div>
-            {settings.custom_banner_enabled === 'true' && (
-              <div className="grid grid-cols-1 gap-4 pt-2">
-                <div className="space-y-2"><Label>Banner Image URL</Label><Input value={settings.custom_banner_image_url || ''} onChange={e => updateSetting('custom_banner_image_url', e.target.value)} placeholder="https://..." /></div>
-                <div className="space-y-2"><Label>Click Link URL</Label><Input value={settings.custom_banner_link_url || ''} onChange={e => updateSetting('custom_banner_link_url', e.target.value)} placeholder="https://..." /></div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Reporter Level, Rewards & Performance Thresholds */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
+      {/* 6. Auto-Delete & Storage Cleanup */}
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-4">
           <CardTitle className="text-base flex items-center gap-2">
-            <Coins className="h-5 w-5 text-red-600" /> Reporter Level, Rewards & Scoring Thresholds
+            <Trash2 className="h-5 w-5 text-red-600" />
+            Auto-Delete & Storage Retention
           </CardTitle>
           <CardDescription>
-            Configure reward rates per approved article (₹), daily submission limits, and promotion score thresholds.
+            Purge old news and delete associated R2 media files (images, video files) to maintain storage limits.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="font-semibold text-sm text-gray-700">Junior Reporter Reward (₹ / article)</Label>
-              <Input
-                type="number"
-                value={settings.reward_junior_article || '3'}
-                onChange={e => updateSetting('reward_junior_article', e.target.value)}
-                placeholder="3"
-              />
-              <p className="text-xs text-muted-foreground">Default ₹3 per approved article</p>
-            </div>
-            <div className="space-y-2">
-              <Label className="font-semibold text-sm text-gray-700">Senior Reporter Reward (₹ / article)</Label>
-              <Input
-                type="number"
-                value={settings.reward_senior_article || '5'}
-                onChange={e => updateSetting('reward_senior_article', e.target.value)}
-                placeholder="5"
-              />
-              <p className="text-xs text-muted-foreground">Default ₹5 per approved article</p>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="font-semibold text-sm text-gray-700">Junior Daily Approved Limit</Label>
-              <Input
-                type="number"
-                value={settings.limit_junior_daily || '3'}
-                onChange={e => updateSetting('limit_junior_daily', e.target.value)}
-                placeholder="3"
-              />
-              <p className="text-xs text-muted-foreground">Max news submissions per day for Junior Reporters (Crime exempt)</p>
-            </div>
-            <div className="space-y-2">
-              <Label className="font-semibold text-sm text-gray-700">Senior Daily Approved Limit</Label>
-              <Input
-                type="number"
-                value={settings.limit_senior_daily || '4'}
-                onChange={e => updateSetting('limit_senior_daily', e.target.value)}
-                placeholder="4"
-              />
-              <p className="text-xs text-muted-foreground">Max news submissions per day for Senior Reporters (Crime exempt)</p>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label className="font-semibold text-sm text-gray-700">Promotion Score Threshold</Label>
-              <Input
-                type="number"
-                value={settings.promotion_score_threshold || '100'}
-                onChange={e => updateSetting('promotion_score_threshold', e.target.value)}
-                placeholder="100"
-              />
-              <p className="text-xs text-muted-foreground">Min Performance Score for Senior promotion eligibility</p>
-            </div>
-            <div className="space-y-2">
-              <Label className="font-semibold text-sm text-gray-700">Min Approved Articles</Label>
-              <Input
-                type="number"
-                value={settings.promotion_min_approved || '100'}
-                onChange={e => updateSetting('promotion_min_approved', e.target.value)}
-                placeholder="100"
-              />
-              <p className="text-xs text-muted-foreground">Min approved articles for Senior promotion eligibility</p>
-            </div>
-            <div className="space-y-2">
-              <Label className="font-semibold text-sm text-gray-700">Demotion Score Threshold</Label>
-              <Input
-                type="number"
-                value={settings.demotion_score_threshold || '40'}
-                onChange={e => updateSetting('demotion_score_threshold', e.target.value)}
-                placeholder="40"
-              />
-              <p className="text-xs text-muted-foreground">Score below which system recommends demotion</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Google Gemini AI Article Writing & Suggestions */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-green-600" /> OpenAI ChatGPT Article Writing & Suggestions
-          </CardTitle>
-          <CardDescription>
-            Configure OpenAI ChatGPT API key to automatically rewrite reporter submissions into professional Telugu news articles with suggested change approval.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label className="font-semibold text-sm text-gray-700">OpenAI API Key (ChatGPT)</Label>
-            <Input
-              type="password"
-              value={settings.openai_api_key || settings.gemini_api_key || ''}
-              onChange={e => {
-                updateSetting('openai_api_key', e.target.value)
-                updateSetting('gemini_api_key', e.target.value)
-              }}
-              placeholder="sk-proj-..."
-            />
-            <p className="text-xs text-muted-foreground">
-              Obtain your API key from OpenAI Platform (platform.openai.com). Powers automatic professional Telugu headline & article rewrites using GPT-4o.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Auto Delete News & Media Retention */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Trash2 className="h-5 w-5 text-red-600" /> Auto Delete News & Media Retention
-          </CardTitle>
-          <CardDescription>
-            Automatically purge old news articles and clean up associated media files (images, thumbnails, uploaded videos) from server storage.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 font-medium">
-                <Clock className="h-4 w-4 text-muted-foreground" /> Retention Threshold (Days Count)
+              <Label className="flex items-center gap-1.5 text-xs font-medium">
+                <Clock className="h-4 w-4 text-muted-foreground" /> Retention Threshold
               </Label>
               <select
                 className="w-full border rounded-md p-2 text-sm bg-background"
@@ -434,7 +551,7 @@ export default function SettingsPage() {
                 <option value="365">365 Days (Delete news older than 1 year)</option>
               </select>
               <p className="text-xs text-muted-foreground">
-                Set to 0 to disable. When set, posts older than this number of days will be deleted along with all their media files.
+                Set to 0 to disable automated cron purging.
               </p>
             </div>
             <div className="flex justify-start md:justify-end">
@@ -445,27 +562,82 @@ export default function SettingsPage() {
                 disabled={runningCleanup || !settings.auto_delete_days || settings.auto_delete_days === '0'}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                {runningCleanup ? 'Cleaning up...' : 'Run Cleanup Now'}
+                {runningCleanup ? 'Cleaning up...' : 'Run Storage Cleanup Now'}
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Maintenance Mode */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Wrench className="h-5 w-5 text-red-600" /> Maintenance Mode</CardTitle>
-          <CardDescription>Temporarily disable app access</CardDescription>
+      {/* 7. YouTube Shorts Integration */}
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Youtube className="h-5 w-5 text-red-600" />
+            YouTube Shorts Channel Integration
+          </CardTitle>
+          <CardDescription>Connect YouTube channel for automatic cross-posting of video shorts.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-            <div><Label className="font-medium">Enable Maintenance Mode</Label><p className="text-xs text-muted-foreground">Shows maintenance screen in the app</p></div>
-            <Switch checked={settings.maintenance_mode === 'true'} onCheckedChange={v => updateSetting('maintenance_mode', String(v))} />
+        <CardContent className="space-y-4 pt-2">
+          <div className="flex items-center justify-between p-3.5 bg-muted/40 rounded-lg border">
+            <div>
+              <Label className="font-medium text-sm">Channel Connection Status</Label>
+              <p className="text-xs text-muted-foreground">
+                {settings.YOUTUBE_REFRESH_TOKEN ? (
+                  <span className="text-emerald-600 font-semibold flex items-center mt-0.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Connected
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Not connected</span>
+                )}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const res = await authFetchJson<{ url: string }>('/api/admin/youtube/auth')
+                  if (res?.url) window.location.href = res.url
+                } catch {
+                  toast.error('Failed to initiate YouTube authentication')
+                }
+              }}
+            >
+              {settings.YOUTUBE_REFRESH_TOKEN ? 'Reconnect YouTube' : 'Connect YouTube'}
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label>Maintenance Message</Label>
-            <Textarea value={settings.maintenance_message || ''} onChange={e => updateSetting('maintenance_message', e.target.value)} placeholder="We'll be back shortly..." rows={2} />
+        </CardContent>
+      </Card>
+
+      {/* 8. Maintenance Mode */}
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Wrench className="h-5 w-5 text-red-600" />
+            Maintenance Mode
+          </CardTitle>
+          <CardDescription>Temporarily display a maintenance screen to users during server updates.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-2">
+          <div className="flex items-center justify-between p-3.5 bg-muted/40 rounded-lg border">
+            <div>
+              <Label className="font-medium text-sm">Enable Maintenance Mode</Label>
+              <p className="text-xs text-muted-foreground">Blocks app content with your custom maintenance banner</p>
+            </div>
+            <Switch
+              checked={settings.maintenance_mode === 'true'}
+              onCheckedChange={v => updateSetting('maintenance_mode', String(v))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Maintenance Notice Message</Label>
+            <Textarea
+              value={settings.maintenance_message || ''}
+              onChange={e => updateSetting('maintenance_message', e.target.value)}
+              placeholder="We are upgrading our servers. Telangana Jyothi Spot News will be back in 15 minutes."
+              rows={2}
+            />
           </div>
         </CardContent>
       </Card>

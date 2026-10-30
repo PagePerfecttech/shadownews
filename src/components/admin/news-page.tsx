@@ -433,6 +433,7 @@ function NewsFormPage({
   })
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false)
   const [uploadingImages, setUploadingImages] = useState(false)
+  const [uploadingVideo, setUploadingVideo] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [pageLoading, setPageLoading] = useState(!!editItemId)
@@ -463,11 +464,11 @@ function NewsFormPage({
           // Robustly extract tag IDs from the API response
           const tagIds = Array.isArray(data.tags)
             ? data.tags
-                .map((t: Record<string, unknown>) => {
-                  const tag = t.tag as Record<string, unknown> | undefined
-                  return tag?.id as string | undefined
-                })
-                .filter((id: string | undefined): id is string => !!id)
+              .map((t: Record<string, unknown>) => {
+                const tag = t.tag as Record<string, unknown> | undefined
+                return tag?.id as string | undefined
+              })
+              .filter((id: string | undefined): id is string => !!id)
             : []
 
           setForm({
@@ -612,11 +613,106 @@ function NewsFormPage({
     }
   }
 
+  const handleMultipleImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+
+    const currentImages = (form.imagesUrls as string[]) || []
+    if (currentImages.length >= 5) {
+      toast.error('Maximum 5 images allowed per article')
+      return
+    }
+
+    const availableSlots = 5 - currentImages.length
+    const filesToUpload = files.slice(0, availableSlots)
+    if (files.length > availableSlots) {
+      toast.info(`Only uploading the first ${availableSlots} images (max 5 allowed)`)
+    }
+
+    setUploadingImages(true)
+    let addedCount = 0
+    const newUrls: string[] = []
+
+    for (const file of filesToUpload) {
+      if (file.size > 25 * 1024 * 1024) {
+        toast.error(`"${file.name}" exceeds 25MB limit and was skipped`)
+        continue
+      }
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const res = await authFetch('/api/admin/media/upload', { method: 'POST', body: formData })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.url) {
+            newUrls.push(data.url)
+            addedCount++
+          }
+        }
+      } catch (err) {
+        console.error('Image upload error:', err)
+      }
+    }
+
+    if (newUrls.length > 0) {
+      const updated = [...currentImages, ...newUrls]
+      updateField('imagesUrls', updated)
+      if (!form.thumbnailUrl) {
+        updateField('thumbnailUrl', newUrls[0])
+      }
+      toast.success(`${addedCount} image(s) uploaded successfully!`)
+    } else {
+      toast.error('Failed to upload selected images')
+    }
+    setUploadingImages(false)
+    if (e.target) e.target.value = ''
+  }
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const ext = (file.name.split('.').pop() || '').toLowerCase()
+    const isVideo = file.type.startsWith('video/') || ['mp4', 'webm', 'mov', '3gp', 'mkv', 'avi'].includes(ext)
+    if (!isVideo) {
+      toast.error('Please select a valid video file (.mp4, .mov, .webm, .3gp)')
+      return
+    }
+
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error(`Video file too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Max 100MB allowed.`)
+      return
+    }
+
+    setUploadingVideo(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await authFetch('/api/admin/media/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      if (res.ok) {
+        const data = await res.json()
+        updateField('videoUrl', data.url)
+        toast.success('Video uploaded successfully!')
+      } else {
+        const errData = await res.json().catch(() => ({ error: 'Upload failed' }))
+        toast.error(errData.error || 'Video upload failed')
+      }
+    } catch {
+      toast.error('Video upload network error')
+    } finally {
+      setUploadingVideo(false)
+      if (e.target) e.target.value = ''
+    }
+  }
+
   const handleImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const currentImages = (form.imagesUrls as string[]) || []
-      if (currentImages.length >= 8) {
-        toast.error('Maximum 8 images allowed')
+      if (currentImages.length >= 5) {
+        toast.error('Maximum 5 images allowed')
         return
       }
       const reader = new FileReader()
@@ -636,17 +732,17 @@ function NewsFormPage({
     const canvas = document.createElement('canvas')
     const scaleX = image.naturalWidth / image.width
     const scaleY = image.naturalHeight / image.height
-    
+
     // Set canvas dimensions to the actual high-resolution cropped size
     const destWidth = completedCrop.width * scaleX
     const destHeight = completedCrop.height * scaleY
-    
+
     // Upscale if the crop is too small to prevent blurriness on mobile devices
     const pixelRatio = destWidth < 800 ? 800 / destWidth : 1
-    
+
     canvas.width = Math.floor(destWidth * pixelRatio)
     canvas.height = Math.floor(destHeight * pixelRatio)
-    
+
     const ctx = canvas.getContext('2d')
     if (!ctx) return null
 
@@ -931,88 +1027,205 @@ function NewsFormPage({
                 />
               </div>
 
-              {/* Thumbnail Upload */}
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold">Thumbnail Image</Label>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <Input
-                      value={form.thumbnailUrl as string}
-                      onChange={(e) => updateField('thumbnailUrl', e.target.value)}
-                      placeholder="Image URL or upload below"
-                    />
+              {/* Article Media (1 to 5 Images) */}
+              <div className="space-y-4 rounded-lg border p-4 bg-muted/20">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-sm font-semibold flex items-center gap-1.5">
+                      <ImageIcon className="h-4 w-4 text-red-600" />
+                      Article Images (1 to 5 Images)
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Upload between 1 and 5 images. The first image or designated cover acts as the thumbnail.
+                    </p>
                   </div>
-                  <label className="cursor-pointer">
-                    <Button type="button" variant="outline" size="sm" disabled={uploadingThumbnail} asChild>
-                      <span>
-                        {uploadingThumbnail ? (
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        ) : (
-                          <Upload className="h-4 w-4 mr-1" />
-                        )}
-                        Upload
-                      </span>
-                    </Button>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleThumbnailUpload} />
-                  </label>
-                </div>
-                {(form.thumbnailUrl as string) && (
-                  <div className="relative inline-block">
-                    <img src={form.thumbnailUrl as string} alt="Preview" className="h-24 w-40 object-cover rounded-lg border" />
-                    <button
-                      onClick={() => updateField('thumbnailUrl', '')}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                )}
-              </div>
+                  <div className="flex items-center gap-2">
+                    <label className="cursor-pointer">
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        className="bg-red-600 hover:bg-red-700 text-white font-medium"
+                        disabled={uploadingImages || (form.imagesUrls as string[]).length >= 5}
+                        asChild
+                      >
+                        <span>
+                          {uploadingImages ? (
+                            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                          ) : (
+                            <Plus className="h-4 w-4 mr-1.5" />
+                          )}
+                          {uploadingImages ? 'Uploading...' : 'Add Images (1-5)'}
+                        </span>
+                      </Button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleMultipleImagesUpload}
+                        disabled={uploadingImages || (form.imagesUrls as string[]).length >= 5}
+                      />
+                    </label>
 
-              {/* Additional Images Upload */}
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold">Additional Images (up to 8)</Label>
-                <div className="flex items-center gap-2">
-                  <label className="cursor-pointer">
-                    <Button type="button" variant="outline" size="sm" disabled={uploadingImages || (form.imagesUrls as string[]).length >= 8} asChild>
-                      <span>
-                        {uploadingImages ? (
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        ) : (
-                          <ImageIcon className="h-4 w-4 mr-1" />
-                        )}
-                        Upload Images
-                      </span>
-                    </Button>
-                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleImagesUpload} />
-                  </label>
-                  <span className="text-xs text-muted-foreground">{(form.imagesUrls as string[]).length}/8 images</span>
+                    <label className="cursor-pointer">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={uploadingThumbnail || (form.imagesUrls as string[]).length >= 5}
+                        asChild
+                      >
+                        <span>
+                          {uploadingThumbnail ? (
+                            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                          ) : (
+                            <Upload className="h-4 w-4 mr-1.5" />
+                          )}
+                          Crop & Add
+                        </span>
+                      </Button>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleThumbnailUpload} />
+                    </label>
+                  </div>
                 </div>
+
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                  <span>Uploaded: <strong className="text-foreground">{(form.imagesUrls as string[]).length} of 5</strong> images</span>
+                  {(form.imagesUrls as string[]).length === 0 && (
+                    <span className="text-amber-600 font-medium">Please add at least 1 image for the article</span>
+                  )}
+                </div>
+
+                {/* Uploaded Images Grid (1 to 5) */}
                 {(form.imagesUrls as string[]).length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {(form.imagesUrls as string[]).map((url, i) => (
-                      <div key={i} className="relative group">
-                        <img src={url} alt={`Image ${i + 1}`} className="h-20 w-full object-cover rounded-lg border" />
-                        <button
-                          onClick={() => removeImage(i)}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
+                    {(form.imagesUrls as string[]).map((url, i) => {
+                      const isCover = form.thumbnailUrl === url || (!form.thumbnailUrl && i === 0)
+                      return (
+                        <div
+                          key={i}
+                          className={`relative group rounded-lg overflow-hidden border-2 transition-all ${isCover ? 'border-red-600 shadow-md ring-2 ring-red-200' : 'border-gray-200'
+                            }`}
                         >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
+                          <img
+                            src={url}
+                            alt={`Article Image ${i + 1}`}
+                            className="h-28 w-full object-cover"
+                          />
+                          {/* Cover Badge */}
+                          {isCover && (
+                            <span className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">
+                              Cover
+                            </span>
+                          )}
+
+                          {/* Hover Actions */}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-1.5">
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  removeImage(i)
+                                  if (form.thumbnailUrl === url) {
+                                    const remaining = (form.imagesUrls as string[]).filter((_, idx) => idx !== i)
+                                    updateField('thumbnailUrl', remaining[0] || '')
+                                  }
+                                }}
+                                className="bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow"
+                                title="Delete image"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            {!isCover && (
+                              <button
+                                type="button"
+                                onClick={() => updateField('thumbnailUrl', url)}
+                                className="w-full text-[11px] bg-white/90 hover:bg-white text-gray-800 font-semibold py-1 rounded shadow"
+                              >
+                                Set as Cover
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
+
+                {/* Direct Thumbnail URL Override */}
+                <div className="pt-2">
+                  <Label className="text-xs text-muted-foreground">Primary Cover URL (auto-set from images above or paste direct link):</Label>
+                  <Input
+                    value={form.thumbnailUrl as string}
+                    onChange={(e) => updateField('thumbnailUrl', e.target.value)}
+                    placeholder="Cover thumbnail URL"
+                    className="text-xs h-8 mt-1"
+                  />
+                </div>
               </div>
 
-              {/* Video URL */}
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Video URL (optional)</Label>
+              {/* Video URL & Video File Upload */}
+              <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-sm font-semibold flex items-center gap-1.5">
+                      <Upload className="h-4 w-4 text-red-600" />
+                      Video Attachment (optional)
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Upload an MP4 / MOV video file (max 100MB) or paste a YouTube / direct video URL.
+                    </p>
+                  </div>
+                  <label className="cursor-pointer">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={uploadingVideo}
+                      asChild
+                    >
+                      <span>
+                        {uploadingVideo ? (
+                          <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4 mr-1.5" />
+                        )}
+                        {uploadingVideo ? 'Uploading Video...' : 'Upload Video File'}
+                      </span>
+                    </Button>
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime,video/3gpp,video/*"
+                      className="hidden"
+                      onChange={handleVideoUpload}
+                      disabled={uploadingVideo}
+                    />
+                  </label>
+                </div>
+
                 <Input
                   value={form.videoUrl as string}
                   onChange={(e) => handleVideoUrlChange(e.target.value)}
-                  placeholder="https://..."
+                  placeholder="https://youtube.com/watch?v=... or click Upload Video File"
                 />
+
+                {(form.videoUrl as string) && (
+                  <div className="flex items-center justify-between p-2.5 bg-background rounded-md border text-xs">
+                    <div className="flex items-center gap-2 truncate max-w-[80%]">
+                      <span className="font-semibold text-emerald-600">Attached:</span>
+                      <span className="truncate text-muted-foreground font-mono">{form.videoUrl as string}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateField('videoUrl', '')}
+                      className="text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* External Link */}
@@ -1128,10 +1341,10 @@ function NewsFormPage({
               {form.status === 'scheduled' && (
                 <div className="space-y-2 pt-2">
                   <Label>Scheduled Date & Time *</Label>
-                  <Input 
-                    type="datetime-local" 
-                    value={form.scheduledAt as string} 
-                    onChange={(e) => updateField('scheduledAt', e.target.value)} 
+                  <Input
+                    type="datetime-local"
+                    value={form.scheduledAt as string}
+                    onChange={(e) => updateField('scheduledAt', e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">Select when the news should automatically be published.</p>
                 </div>
@@ -1194,11 +1407,10 @@ function NewsFormPage({
                         key={tag.id}
                         type="button"
                         onClick={() => toggleTag(tag.id)}
-                        className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                          selected
+                        className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${selected
                             ? 'bg-red-50 border-red-300 text-red-700'
                             : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                        }`}
+                          }`}
                       >
                         {tag.name}
                       </button>
