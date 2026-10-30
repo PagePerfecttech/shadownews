@@ -22,13 +22,13 @@ export async function GET(request: NextRequest) {
         },
         include: {
           user: {
-            select: { id: true, name: true, phone: true, avatar: true },
+            select: { id: true, name: true, avatar: true },
           },
           replies: {
             where: { isActive: true },
             include: {
               user: {
-                select: { id: true, name: true, phone: true, avatar: true },
+                select: { id: true, name: true, avatar: true },
               },
             },
             orderBy: { createdAt: 'asc' },

@@ -6,10 +6,11 @@ import { messaging } from '@/lib/firebase-admin'
 
 export async function GET(request: Request) {
   try {
-    // Basic security for cron (optional, usually cron jobs pass a secret header)
+    // Enforce mandatory CRON_SECRET authorization
     const authHeader = request.headers.get('authorization')
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return new NextResponse('Unauthorized', { status: 401 })
+    const cronSecret = process.env.CRON_SECRET
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'Unauthorized cron request' }, { status: 401 })
     }
 
     const now = new Date()

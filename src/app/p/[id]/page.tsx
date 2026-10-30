@@ -25,19 +25,29 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://telanganajyothi.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://m.telanganajyothi.in'
   const images: string[] = safeJsonParse<string[]>(news.imagesUrls, [])
-  const imageUrl = news.thumbnailUrl || (images.length > 0 ? images[0] : `${baseUrl}/spotnewslogo.png`)
+  let imageUrl = news.thumbnailUrl || (images.length > 0 ? images[0] : `${baseUrl}/spotnewslogo.png`)
+  if (imageUrl.startsWith('/')) {
+    imageUrl = `${baseUrl}${imageUrl}`
+  }
+
+  const cleanDescription = (news.shortDesc || news.title || '').trim()
 
   return {
-    title: news.title,
-    description: news.shortDesc || '',
+    title: `${news.title} | Telangana Jyothi Spot News`,
+    description: cleanDescription,
     metadataBase: new URL(baseUrl),
+    alternates: {
+      canonical: `${baseUrl}/p/${id}`,
+    },
     openGraph: {
       title: news.title,
-      description: news.shortDesc || '',
+      description: cleanDescription,
+      url: `${baseUrl}/p/${id}`,
       type: 'article',
-      siteName: 'Telangana Jyothi',
+      siteName: 'Telangana Jyothi Spot News',
+      locale: 'te_IN',
       images: [
         {
           url: imageUrl,
@@ -50,7 +60,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     twitter: {
       card: 'summary_large_image',
       title: news.title,
-      description: news.shortDesc || '',
+      description: cleanDescription,
       images: [imageUrl],
     }
   }
@@ -179,19 +189,24 @@ export default async function NewsPreviewPage({ params }: PageProps) {
 
           {/* CTA Button */}
           <a
-            href={`intent://m.telanganajyothi.in/p/${id}#Intent;scheme=https;package=com.telanganajyothi.shorts;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.telanganajyothi.shorts;end`}
+            id="open-app-btn"
+            href={`https://play.google.com/store/apps/details?id=com.telanganajyothi.shorts`}
             className="w-full py-3.5 bg-[#D32F2F] hover:bg-[#B71C1C] text-white font-semibold rounded-2xl text-center shadow-md shadow-red-200 transition-all block duration-200"
           >
-            యాప్‌లో చదవండి / డౌన్‌లోడ్ చేసుకోండి (App / Play Store)
+            యాప్‌లో చదవండి (Open in App)
           </a>
         </div>
       </div>
       <script
         dangerouslySetInnerHTML={{
           __html: `
-            if (/Android/i.test(navigator.userAgent)) {
+            var isAndroid = /Android/i.test(navigator.userAgent);
+            var btn = document.getElementById('open-app-btn');
+            if (isAndroid) {
+              var intentUrl = "intent://m.telanganajyothi.in/p/${id}#Intent;scheme=https;package=com.telanganajyothi.shorts;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.telanganajyothi.shorts;end";
+              if (btn) btn.href = intentUrl;
               setTimeout(function() {
-                window.location.href = "intent://m.telanganajyothi.in/p/${id}#Intent;scheme=https;package=com.telanganajyothi.shorts;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.telanganajyothi.shorts;end";
+                window.location.href = intentUrl;
               }, 300);
             }
           `

@@ -43,12 +43,15 @@ export async function processNewsApprovalEarning(newsId: string, isVideo: boolea
 
     if (rewardAmount <= 0) return
 
+    const coinsPerInr = await getSettingNumber('COINS_PER_INR', 100)
+    const coinsToCredit = Math.round(rewardAmount * coinsPerInr)
+
     // Run transaction: update earnings balance and log transaction
     await db.$transaction([
       db.walletTransaction.create({
         data: {
           reporterId: news.reporterId,
-          amount: Math.round(rewardAmount),
+          amount: coinsToCredit,
           type: 'CREDIT',
           description: `Reward for approved ${isSenior ? 'Senior' : 'Junior'} news article (₹${rewardAmount}): ${news.title}`,
           referenceId: newsId,
@@ -58,7 +61,7 @@ export async function processNewsApprovalEarning(newsId: string, isVideo: boolea
         where: { id: news.reporterId },
         data: {
           earningsBalance: { increment: rewardAmount },
-          coinsBalance: { increment: Math.round(rewardAmount) },
+          coinsBalance: { increment: coinsToCredit },
         }
       })
     ])

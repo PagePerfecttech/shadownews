@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const rateSetting = await db.setting.findUnique({ where: { key: 'COINS_PER_INR' } })
-    const coinsPerInr = rateSetting && !isNaN(parseFloat(rateSetting.value)) ? parseFloat(rateSetting.value) : 1 // Default: 1 coin = 1 INR
+    const coinsPerInr = rateSetting && !isNaN(parseFloat(rateSetting.value)) ? parseFloat(rateSetting.value) : 100 // Default: 100 coins = 1 INR
     const conversionRate = 1 / coinsPerInr
 
     const moneyAmount = coins * conversionRate
@@ -49,6 +49,21 @@ export async function POST(request: NextRequest) {
     }
 
     const withdrawal = await db.$transaction(async (tx) => {
+      // Atomic conditional check & decrement to eliminate double-spend race condition
+      const updateResult = await tx.reporter.updateMany({
+        where: {
+          id: reporter.id,
+          coinsBalance: { gte: coins },
+        },
+        data: {
+          coinsBalance: { decrement: coins },
+        },
+      })
+
+      if (updateResult.count === 0) {
+        throw new Error('INSUFFICIENT_COINS')
+      }
+
       // Create request
       const req = await tx.withdrawalRequest.create({
         data: {
@@ -58,12 +73,6 @@ export async function POST(request: NextRequest) {
           upiId,
           status: 'pending'
         }
-      })
-
-      // Deduct from balance
-      await tx.reporter.update({
-        where: { id: reporter.id },
-        data: { coinsBalance: { decrement: coins } }
       })
 
       // Log transaction
@@ -81,7 +90,10 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(withdrawal, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message === 'INSUFFICIENT_COINS') {
+      return NextResponse.json({ error: 'Insufficient coins' }, { status: 400 })
+    }
     console.error('Wallet withdraw error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

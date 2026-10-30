@@ -14,7 +14,8 @@ export async function proxy(request: NextRequest) {
     pathname === '/api/' ||
     pathname.startsWith('/api/mobile/') ||
     pathname === '/api/admin/auth/login' ||
-    pathname.startsWith('/api/admin/youtube/callback')
+    pathname.startsWith('/api/admin/youtube/callback') ||
+    pathname.startsWith('/api/admin/cron/rss')
   ) {
     return NextResponse.next()
   }
