@@ -50,8 +50,8 @@ Title: ${title}
 Summary: ${shortDesc || ''}
 Content: ${content || shortDesc || title}`
 
-    // Models to try in priority order (gemini-2.5-flash is current flagship, gemini-1.5-flash as fallback)
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash']
+    // Resolve models: dynamically fetch models supported for this API key or use prioritized fallback
+    const modelsToTry = await getGeminiModelsToTry(apiKey)
     let responseText = ''
 
     for (const model of modelsToTry) {
@@ -132,6 +132,48 @@ Content: ${content || shortDesc || title}`
   }
 }
 
+/**
+ * Queries Google's models endpoint to find the active models for this API key,
+ * or returns a prioritized list of latest Gemini models (including gemini-3.8-flash).
+ */
+export async function getGeminiModelsToTry(apiKey: string): Promise<string[]> {
+  const fallbackList = [
+    'gemini-3.8-flash',
+    'gemini-2.5-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-pro',
+  ]
+
+  try {
+    const listRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      { method: 'GET' }
+    )
+    if (listRes.ok) {
+      const data = await listRes.json()
+      if (Array.isArray(data?.models)) {
+        const available = data.models
+          .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+          .map((m: any) => m.name.replace(/^models\//, ''))
+
+        // Prioritize flash models first, followed by others
+        const flashModels = available.filter((m: string) => m.includes('flash'))
+        const otherModels = available.filter((m: string) => !m.includes('flash'))
+        const combined = [...flashModels, ...otherModels]
+
+        if (combined.length > 0) {
+          return combined
+        }
+      }
+    }
+  } catch (e) {
+    // Ignore network error and proceed with fallback list
+  }
+
+  return fallbackList
+}
+
 // Backwards-compatible aliases
 export const generateAINewsRewrite = generateGeminiNewsRewrite
 export const generateGrokNewsRewrite = generateGeminiNewsRewrite
@@ -170,7 +212,7 @@ export async function testGeminiConnection(overrideKey?: string): Promise<{
     }
   }
 
-  const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash']
+  const modelsToTry = await getGeminiModelsToTry(apiKey)
   let lastError = ''
 
   for (const model of modelsToTry) {
