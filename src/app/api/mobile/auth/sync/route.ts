@@ -13,9 +13,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: e.message }, { status: 401 })
     }
     
-    const phone = decodedToken.phone_number || (decodedToken.email ? `email_${decodedToken.email}` : decodedToken.uid);
+    const rawPhone = decodedToken.phone_number || (decodedToken.email ? `email_${decodedToken.email}` : decodedToken.uid);
+    const digitsOnly = rawPhone.replace(/\D/g, '');
+    const phone = (digitsOnly.length === 10) ? `+91${digitsOnly}` : rawPhone;
+    const phoneVariants = [rawPhone, phone, digitsOnly, `91${digitsOnly}`];
     
-    let user = await db.user.findUnique({ where: { phone } });
+    let user = await db.user.findFirst({
+      where: {
+        OR: [
+          { phone: { in: phoneVariants } },
+          ...(decodedToken.email ? [{ email: decodedToken.email }] : [])
+        ],
+        deletedAt: null
+      }
+    });
+
     if (!user) {
       user = await db.user.create({
         data: {
@@ -26,6 +38,7 @@ export async function POST(request: NextRequest) {
         }
       });
     }
+
     // Check if user is an admin
     const email = decodedToken.email || null;
     let isAdmin = false;
@@ -44,7 +57,16 @@ export async function POST(request: NextRequest) {
     if (isAdmin) role = 'admin';
     else if (isReporter) role = 'reporter';
 
-    return NextResponse.json({ success: true, user: { ...user, role } });
+    return NextResponse.json({
+      success: true,
+      user: {
+        ...user,
+        role,
+        isReporter: !!isReporter,
+        reporterStatus: reporter?.status || null,
+        reporterId: reporter?.id || null,
+      }
+    });
   } catch (error: any) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

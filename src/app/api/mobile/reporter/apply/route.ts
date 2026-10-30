@@ -69,14 +69,28 @@ export async function POST(request: NextRequest) {
     const validatedData = parsed.data
     
     // Fallback phone number resolution logic (matches auth/sync)
-    const phone = decodedToken.phone_number || validatedData.phone || (decodedToken.email ? `email_${decodedToken.email}` : decodedToken.uid);
+    const rawPhone = decodedToken.phone_number || validatedData.phone || (decodedToken.email ? `email_${decodedToken.email}` : decodedToken.uid);
 
-    if (!phone) {
+    if (!rawPhone) {
        return NextResponse.json({ error: 'Missing phone number' }, { status: 400 })
     }
 
-    // Check if already applied
-    let reporter = await db.reporter.findUnique({ where: { phone } })
+    // Format phone to E.164 (+91XXXXXXXXXX) if 10-digit Indian number
+    const digitsOnly = rawPhone.replace(/\D/g, '');
+    const phone = (digitsOnly.length === 10) ? `+91${digitsOnly}` : rawPhone;
+    const phoneVariants = [rawPhone, phone, digitsOnly, `91${digitsOnly}`];
+
+    // Check if already registered as a reporter
+    let reporter = await db.reporter.findFirst({
+      where: {
+        OR: [
+          { phone: { in: phoneVariants } },
+          ...(validatedData.email ? [{ email: validatedData.email }] : [])
+        ],
+        deletedAt: null
+      }
+    });
+
     if (reporter) {
       return NextResponse.json({ message: 'Already registered as a reporter', reporter }, { status: 200 })
     }

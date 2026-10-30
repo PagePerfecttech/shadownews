@@ -64,6 +64,13 @@ export async function PUT(
       return NextResponse.json({ error: 'News article not found' }, { status: 404 })
     }
 
+    if (existingNews.status === 'published') {
+      return NextResponse.json(
+        { error: 'ప్రచురించబడిన వార్తలను సవరించడానికి అనుమతి లేదు. దయచేసి అడ్మిన్‌ను సంప్రదించండి. (Published articles cannot be edited directly by reporters. Please contact admin.)' },
+        { status: 403 }
+      )
+    }
+
     let title, shortDesc, categoryId, districtId, mandalId, thumbnailUrl, videoUrl, customLink;
     const contentType = request.headers.get('content-type') || '';
 
