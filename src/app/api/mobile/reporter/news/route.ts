@@ -172,10 +172,16 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Force the news location to match the reporter's allotted location if not provided
-    stateId = reporter.stateId || stateId;
+    // Auto-resolve state from district if district is chosen, fallback to reporter's assigned jurisdiction
     districtId = districtId || reporter.districtId;
     mandalId = mandalId || reporter.mandalId;
+    if (districtId && !stateId) {
+      const dist = await db.district.findUnique({ where: { id: districtId }, select: { stateId: true } });
+      if (dist?.stateId) {
+        stateId = dist.stateId;
+      }
+    }
+    stateId = stateId || reporter.stateId;
     
     if (!stateId) {
        return NextResponse.json({ error: 'Reporter location not configured' }, { status: 400 })

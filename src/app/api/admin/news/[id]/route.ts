@@ -63,7 +63,16 @@ export async function PUT(
     if (data.content !== undefined) updateData.content = data.content || null
     if (data.categoryId !== undefined) updateData.categoryId = data.categoryId
     if (data.stateId !== undefined) updateData.stateId = data.stateId
-    if (data.districtId !== undefined) updateData.districtId = data.districtId || null
+    if (data.districtId !== undefined) {
+      updateData.districtId = data.districtId || null
+      if (data.districtId && !data.stateId) {
+        const dist = await db.district.findUnique({ where: { id: data.districtId }, select: { stateId: true } })
+        if (dist?.stateId) {
+          updateData.stateId = dist.stateId
+        }
+      }
+    }
+    if (data.mandalId !== undefined) updateData.mandalId = data.mandalId || null
     if (data.thumbnailUrl !== undefined) updateData.thumbnailUrl = data.thumbnailUrl || ''
     if (data.imagesUrls !== undefined) updateData.imagesUrls = safeJsonStringify(data.imagesUrls || [])
     if (data.videoUrl !== undefined) updateData.videoUrl = data.videoUrl || null

@@ -81,6 +81,12 @@ export async function POST(request: NextRequest) {
 
     // Get Telangana state ID if not provided
     let stateId = data.stateId
+    if (data.districtId && !stateId) {
+      const dist = await db.district.findUnique({ where: { id: data.districtId }, select: { stateId: true } })
+      if (dist?.stateId) {
+        stateId = dist.stateId
+      }
+    }
     if (!stateId) {
       const telangana = await db.state.findFirst({ where: { code: 'TG' } })
       stateId = telangana?.id || ''
@@ -96,6 +102,7 @@ export async function POST(request: NextRequest) {
         categoryId: data.categoryId,
         stateId: stateId,
         districtId: data.districtId || null,
+        mandalId: data.mandalId || null,
         thumbnailUrl: data.thumbnailUrl || '',
         imagesUrls: safeJsonStringify(data.imagesUrls || []),
         videoUrl: data.videoUrl || null,
