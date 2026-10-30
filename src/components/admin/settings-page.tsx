@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import {
   Settings, Shield, Wrench, MessageSquare, Moon, Video as VideoIcon,
   Bell, Bookmark, Share, Save, Megaphone, Youtube, Coins, Trash2,
-  Clock, Sparkles, CheckCircle2, AlertTriangle, RefreshCw
+  Clock, Sparkles, CheckCircle2, AlertTriangle, RefreshCw, Zap
 } from 'lucide-react'
 import { authFetch, authFetchJson } from '@/lib/utils'
 
@@ -21,6 +21,8 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [runningCleanup, setRunningCleanup] = useState(false)
+  const [testingGemini, setTestingGemini] = useState(false)
+  const [geminiTestResult, setGeminiTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -89,6 +91,32 @@ export default function SettingsPage() {
     }
   }
 
+  const handleTestGemini = async () => {
+    setTestingGemini(true)
+    setGeminiTestResult(null)
+    try {
+      const currentKey = settings.gemini_api_key || settings.google_gemini_api_key || settings.grok_api_key || ''
+      const res = await authFetch('/api/admin/settings/test-gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: currentKey }),
+      })
+      const data = await res.json()
+      setGeminiTestResult(data)
+      if (data.success) {
+        toast.success(data.message || 'Gemini connection successful!')
+      } else {
+        toast.error(data.message || 'Gemini connection failed.')
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to test Gemini connection'
+      setGeminiTestResult({ success: false, message: msg })
+      toast.error(msg)
+    } finally {
+      setTestingGemini(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-4 max-w-4xl">
@@ -114,7 +142,7 @@ export default function SettingsPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-background/95 backdrop-blur sticky top-0 z-10 py-3 border-b">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">System & App Settings</h1>
-          <p className="text-sm text-muted-foreground">Configure xAI Grok, AdMob, Reporter Rewards, and App Controls</p>
+          <p className="text-sm text-muted-foreground">Configure Google Gemini AI, AdMob, Reporter Rewards, and App Controls</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={fetchSettings} disabled={loading || saving}>
@@ -128,15 +156,15 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* 1. xAI Grok AI Integration */}
-      <Card className="border border-red-100 shadow-sm">
-        <CardHeader className="bg-gradient-to-r from-red-50/50 to-orange-50/50 pb-4">
+      {/* 1. Google Gemini AI Integration */}
+      <Card className="border border-blue-100 shadow-sm">
+        <CardHeader className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-red-600" />
-              xAI Grok AI Integration
+              <Sparkles className="h-5 w-5 text-blue-600" />
+              Google Gemini AI Integration (Fast & Free)
             </CardTitle>
-            {settings.grok_api_key || settings.xai_api_key ? (
+            {settings.gemini_api_key || settings.google_gemini_api_key || settings.grok_api_key ? (
               <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                 <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Configured
               </span>
@@ -147,26 +175,71 @@ export default function SettingsPage() {
             )}
           </div>
           <CardDescription>
-            Uses xAI Grok-2 (<code>grok-2-latest</code>) to automatically rewrite and proofread Telugu news submissions into high-impact journalistic Telugu.
+            Uses Google Gemini (<code>gemini-2.5-flash</code> / <code>gemini-1.5-flash</code>) to automatically rewrite and proofread Telugu news submissions into high-impact journalistic Telugu with zero API cost on Google AI Studio's free tier.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 pt-4">
           <div className="space-y-2">
-            <Label className="font-semibold text-sm">xAI Grok API Key</Label>
-            <Input
-              type="password"
-              value={settings.grok_api_key || settings.xai_api_key || ''}
-              onChange={e => {
-                updateSetting('grok_api_key', e.target.value)
-                updateSetting('xai_api_key', e.target.value)
-              }}
-              placeholder="xai-..."
-              className="font-mono text-sm"
-            />
+            <Label className="font-semibold text-sm">Google Gemini API Key</Label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                type="password"
+                value={settings.gemini_api_key || settings.google_gemini_api_key || settings.grok_api_key || ''}
+                onChange={e => {
+                  updateSetting('gemini_api_key', e.target.value)
+                  updateSetting('google_gemini_api_key', e.target.value)
+                  updateSetting('grok_api_key', e.target.value)
+                  setGeminiTestResult(null)
+                }}
+                placeholder="AIzaSy..."
+                className="font-mono text-sm flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="border-blue-300 text-blue-700 hover:bg-blue-50 font-medium shrink-0"
+                onClick={handleTestGemini}
+                disabled={testingGemini || !(settings.gemini_api_key || settings.google_gemini_api_key || settings.grok_api_key)}
+              >
+                {testingGemini ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-4 w-4 mr-2 text-amber-500 fill-amber-500" />
+                    Test Connection
+                  </>
+                )}
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">
-              Obtain your key from the xAI Console (<strong>console.x.ai</strong>). Replaces legacy OpenAI models with Grok AI.
+              Get your free API key in seconds from Google AI Studio (<strong>aistudio.google.com</strong>). Fast, reliable, and completely free of cost. Click <strong>Test Connection</strong> to verify your key before or after saving.
             </p>
           </div>
+
+          {geminiTestResult && (
+            <div
+              className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 transition-all ${
+                geminiTestResult.success
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-rose-50 border-rose-200 text-rose-800'
+              }`}
+            >
+              {geminiTestResult.success ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 text-rose-600 mt-0.5 shrink-0" />
+              )}
+              <div className="flex-1">
+                <span className="font-semibold block mb-0.5">
+                  {geminiTestResult.success ? 'Connection Successful' : 'Connection Failed'}
+                </span>
+                <span>{geminiTestResult.message}</span>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

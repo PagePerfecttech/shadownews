@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyAuth } from '@/lib/auth'
-import { generateGrokNewsRewrite } from '@/lib/grok-service'
+import { generateGeminiNewsRewrite } from '@/lib/gemini-service'
 import { logAudit, getClientIp } from '@/lib/audit'
 
 export async function POST(
@@ -18,14 +18,14 @@ export async function POST(
       return NextResponse.json({ error: 'News not found' }, { status: 404 })
     }
 
-    const aiResult = await generateGrokNewsRewrite(
+    const aiResult = await generateGeminiNewsRewrite(
       news.title,
       news.content || news.shortDesc || news.title,
       news.shortDesc || undefined
     )
 
     if (!aiResult) {
-      return NextResponse.json({ error: 'Failed to generate Grok AI rewrite. Please check your xAI Grok API key in Admin Settings.' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to generate Gemini AI rewrite. Please check your Google Gemini API key in Admin Settings.' }, { status: 500 })
     }
 
     const updatedNews = await db.news.update({

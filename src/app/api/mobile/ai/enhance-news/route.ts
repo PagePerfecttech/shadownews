@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateGrokNewsRewrite } from '@/lib/grok-service'
+import { generateGeminiNewsRewrite } from '@/lib/gemini-service'
 import { verifyFirebaseToken } from '@/lib/firebase-admin'
 import { findReporterFromToken } from '@/lib/reporter-utils'
 
@@ -40,10 +40,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Title or Content is required' }, { status: 400 })
     }
 
-    const aiResult = await generateGrokNewsRewrite(title, content)
+    const aiResult = await generateGeminiNewsRewrite(title, content)
 
     if (!aiResult) {
-      // Fallback formatting if GROK_API_KEY is not configured
+      // Fallback formatting if GEMINI_API_KEY is not configured
       const formattedTitle = (title || '').trim()
       const formattedDesc = (content || title || '').trim()
       return NextResponse.json({

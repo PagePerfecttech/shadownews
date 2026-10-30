@@ -1,8 +1,7 @@
 /**
- * Migration notice: OpenAI has been deprecated and replaced with xAI Grok.
- * This file maintains backwards compatibility by delegating all rewrites to Grok AI.
+ * Backwards compatibility: Delegates to Google Gemini AI service.
  */
-import { generateGrokNewsRewrite, type GrokRewriteResult } from './grok-service'
+import { generateGeminiNewsRewrite, type GeminiRewriteResult } from './gemini-service'
 
-export const generateAINewsRewrite = generateGrokNewsRewrite
-export type AIRewriteResult = GrokRewriteResult
+export const generateAINewsRewrite = generateGeminiNewsRewrite
+export type AIRewriteResult = GeminiRewriteResult
