@@ -2,34 +2,40 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { logAudit, getClientIp } from '@/lib/audit'
 import { verifyAuth } from '@/lib/auth'
-import { issueReporterWarning, flagReporterFakeNews, checkReporterPromotionEligibility } from '@/lib/scoring-service'
+import {
+  computeReporterMetrics,
+  getAllLevelConfigs,
+  getLevelConfig,
+  evaluatePromotionDemotion
+} from '@/lib/reward-engine'
+import { issueReporterWarning, flagReporterFakeNews } from '@/lib/scoring-service'
 
 export async function GET(request: NextRequest) {
   try {
     const admin = await verifyAuth(request)
     if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const reporters = await db.reporter.findMany({
-      where: { deletedAt: null },
-      include: {
-        district: { select: { name: true } },
-        mandal: { select: { name: true } },
-        _count: { select: { news: { where: { deletedAt: null } } } },
-      },
-      orderBy: [
-        { promotionStatus: 'asc' },
-        { performanceScore: 'desc' },
-      ],
-    })
+    const [reporters, allLevels] = await Promise.all([
+      db.reporter.findMany({
+        where: { deletedAt: null },
+        include: {
+          district: { select: { name: true } },
+          mandal: { select: { name: true } },
+        },
+        orderBy: [
+          { performanceScore: 'desc' },
+          { approvedArticles: 'desc' },
+        ],
+      }),
+      getAllLevelConfigs(),
+    ])
 
-    // Calculate sum of total views per reporter
     const reportersWithStats = await Promise.all(
       reporters.map(async (reporter) => {
-        const viewsResult = await db.news.aggregate({
-          where: { reporterId: reporter.id, deletedAt: null },
-          _sum: { viewsCount: true },
-        })
-        const totalViews = viewsResult._sum.viewsCount || 0
+        const metrics = await computeReporterMetrics(reporter.id)
+        const currentRole = reporter.role || 'junior'
+        const currentLevelConfig = allLevels.find((l) => l.levelKey === currentRole) || allLevels[0]
+        const nextLevelConfig = allLevels.find((l) => l.rankOrder === currentLevelConfig.rankOrder + 1) || null
 
         return {
           id: reporter.id,
@@ -37,16 +43,27 @@ export async function GET(request: NextRequest) {
           phone: reporter.phone,
           email: reporter.email,
           avatar: reporter.avatar,
-          role: reporter.role || (reporter.canPublishDirectly ? 'senior' : 'junior'),
+          role: currentRole,
+          levelDisplayName: currentLevelConfig.displayName,
+          badgeColor: currentLevelConfig.badgeColor,
           status: reporter.status,
+          postingScope: reporter.postingScope || 'mandal',
           performanceScore: reporter.performanceScore || 0,
-          approvedArticles: reporter.approvedArticles || 0,
-          rejectedArticles: reporter.rejectedArticles || 0,
+          approvedArticles: metrics.approvedCount,
+          rejectedArticles: metrics.rejectedCount,
+          pendingArticles: metrics.pendingCount,
+          approvalRate: metrics.approvalRate,
           fakeNewsCount: reporter.fakeNewsCount || 0,
           warningCount: reporter.warningCount || 0,
           promotionStatus: reporter.promotionStatus || 'none',
           earningsBalance: reporter.earningsBalance || 0,
-          totalViews,
+          totalEarnings: reporter.totalEarnings || 0,
+          coinsBalance: reporter.coinsBalance || 0,
+          totalViews: metrics.totalViews,
+          totalShares: metrics.totalShares,
+          currentStreak: metrics.currentStreak,
+          avgApprovalHours: metrics.avgApprovalHours,
+          nextLevelName: nextLevelConfig?.displayName || null,
           district: reporter.district?.name || null,
           mandal: reporter.mandal?.name || null,
           createdAt: reporter.createdAt,
@@ -67,7 +84,7 @@ export async function POST(request: NextRequest) {
     if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()
-    const { reporterId, action, reason } = body
+    const { reporterId, action, reason, targetLevel } = body
 
     if (!reporterId || !action) {
       return NextResponse.json({ error: 'Reporter ID and action are required' }, { status: 400 })
@@ -78,30 +95,102 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Reporter not found' }, { status: 404 })
     }
 
+    const allLevels = await getAllLevelConfigs()
+    const currentRole = reporter.role || 'junior'
+    const currentConfig = allLevels.find((l) => l.levelKey === currentRole) || allLevels[0]
+
     let updatedReporter: Record<string, unknown> = {}
 
     switch (action) {
-      case 'promote':
+      case 'promote': {
+        const nextLevel = targetLevel
+          ? allLevels.find((l) => l.levelKey === targetLevel)
+          : allLevels.find((l) => l.rankOrder === currentConfig.rankOrder + 1)
+
+        if (!nextLevel) {
+          return NextResponse.json({ error: 'Already at highest level' }, { status: 400 })
+        }
+
         updatedReporter = await db.reporter.update({
           where: { id: reporterId },
           data: {
-            role: 'senior',
-            canPublishDirectly: true,
+            role: nextLevel.levelKey,
+            canPublishDirectly: nextLevel.canPublishDirectly,
             promotionStatus: 'promoted',
           },
         })
-        break
 
-      case 'demote':
+        await db.reporterLevelAudit.create({
+          data: {
+            reporterId,
+            fromLevel: currentConfig.levelKey,
+            toLevel: nextLevel.levelKey,
+            action: 'promoted',
+            reason: reason || `Admin promoted to ${nextLevel.displayName}`,
+            changedBy: admin.id,
+          }
+        })
+        break
+      }
+
+      case 'demote': {
+        const prevLevel = targetLevel
+          ? allLevels.find((l) => l.levelKey === targetLevel)
+          : allLevels.find((l) => l.rankOrder === currentConfig.rankOrder - 1)
+
+        if (!prevLevel) {
+          return NextResponse.json({ error: 'Already at lowest level' }, { status: 400 })
+        }
+
         updatedReporter = await db.reporter.update({
           where: { id: reporterId },
           data: {
-            role: 'junior',
-            canPublishDirectly: false,
+            role: prevLevel.levelKey,
+            canPublishDirectly: prevLevel.canPublishDirectly,
             promotionStatus: 'demoted',
           },
         })
+
+        await db.reporterLevelAudit.create({
+          data: {
+            reporterId,
+            fromLevel: currentConfig.levelKey,
+            toLevel: prevLevel.levelKey,
+            action: 'demoted',
+            reason: reason || `Admin demoted to ${prevLevel.displayName}`,
+            changedBy: admin.id,
+          }
+        })
         break
+      }
+
+      case 'set_level': {
+        const target = allLevels.find((l) => l.levelKey === targetLevel)
+        if (!target) {
+          return NextResponse.json({ error: 'Target level does not exist' }, { status: 400 })
+        }
+
+        updatedReporter = await db.reporter.update({
+          where: { id: reporterId },
+          data: {
+            role: target.levelKey,
+            canPublishDirectly: target.canPublishDirectly,
+            promotionStatus: 'none',
+          },
+        })
+
+        await db.reporterLevelAudit.create({
+          data: {
+            reporterId,
+            fromLevel: currentConfig.levelKey,
+            toLevel: target.levelKey,
+            action: 'manual_override',
+            reason: reason || `Admin manually set level to ${target.displayName}`,
+            changedBy: admin.id,
+          }
+        })
+        break
+      }
 
       case 'warning':
         await issueReporterWarning(reporterId, reason)
@@ -130,7 +219,7 @@ export async function POST(request: NextRequest) {
       case 'activate':
         updatedReporter = await db.reporter.update({
           where: { id: reporterId },
-          data: { status: 'active' },
+          data: { status: 'approved' },
         })
         break
 
@@ -144,10 +233,8 @@ export async function POST(request: NextRequest) {
       entity: 'reporter_performance',
       entityId: reporterId,
       ipAddress: getClientIp(request),
-      changes: { action, reason, reporterName: reporter.name },
+      changes: { action, reason, targetLevel, reporterName: reporter.name },
     })
-
-    await checkReporterPromotionEligibility(reporterId)
 
     return NextResponse.json({ success: true, reporter: updatedReporter })
   } catch (error) {

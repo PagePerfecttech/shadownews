@@ -29,13 +29,17 @@ interface NewsItem {
   priority: string
   createdAt: string
   publishedAt: string | null
+  approvedAt?: string | null
+  approvedBy?: string | null
   viewsCount: number
   thumbnailUrl: string
   imagesUrls: string[]
   videoUrl: string | null
   category: { name: string; color: string }
   district: { name: string } | null
-  reporter: { name: string } | null
+  reporter: { id: string; name: string; avatar?: string | null; phone?: string | null } | null
+  approver?: { id: string; name: string; email?: string } | null
+  admin?: { id: string; name: string } | null
   tags: { tag: { name: string; slug: string } }[]
 }
 
@@ -61,7 +65,7 @@ const priorityColors: Record<string, string> = {
 }
 
 export default function NewsPage() {
-  const { currentUser, pendingAction, setPendingAction } = useAppStore()
+  const { currentUser, pendingAction, setPendingAction, setSelectedReporterId, setActiveView } = useAppStore()
   const [news, setNews] = useState<NewsItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -70,6 +74,7 @@ export default function NewsPage() {
   const [filterStatus, setFilterStatus] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterPriority, setFilterPriority] = useState('')
+  const [filterReporter, setFilterReporter] = useState('')
   const [categories, setCategories] = useState<Category[]>([])
   const [states, setStates] = useState<State[]>([])
   const [districts, setDistricts] = useState<District[]>([])
@@ -95,6 +100,7 @@ export default function NewsPage() {
       if (filterStatus && filterStatus !== 'all') params.set('status', filterStatus)
       if (filterCategory && filterCategory !== 'all') params.set('categoryId', filterCategory)
       if (filterPriority && filterPriority !== 'all') params.set('priority', filterPriority)
+      if (filterReporter && filterReporter !== 'all') params.set('reporterId', filterReporter)
       if (activeTab === 'pending') params.set('status', 'pending_review')
 
       const data = await authFetchJson<{ news: NewsItem[]; total: number }>(`/api/admin/news?${params}`)
@@ -106,7 +112,7 @@ export default function NewsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, filterStatus, filterCategory, filterPriority, activeTab])
+  }, [page, search, filterStatus, filterCategory, filterPriority, filterReporter, activeTab])
 
   useEffect(() => {
     const loadDeps = async () => {
@@ -117,15 +123,15 @@ export default function NewsPage() {
           authFetchJson<State[]>('/api/admin/states', undefined, true),
           authFetchJson<District[]>('/api/admin/districts', undefined, true),
           authFetchJson<Mandal[]>('/api/admin/mandals', undefined, true),
-          authFetchJson<Reporter[]>('/api/admin/reporters', undefined, true),
+          authFetchJson<any>('/api/admin/reporters', undefined, true),
           authFetchJson<Tag[]>('/api/admin/tags', undefined, true),
         ])
-        setCategories(cats)
-        setStates(stateList)
-        setDistricts(dists)
-        setMandals(mands)
-        setReporters(reps)
-        setTags(tagList)
+        setCategories(cats || [])
+        setStates(stateList || [])
+        setDistricts(dists || [])
+        setMandals(mands || [])
+        setReporters(Array.isArray(reps) ? reps : reps?.reporters || [])
+        setTags(tagList || [])
       } catch (err) {
         console.error('Failed to load dependencies:', err)
       }
@@ -288,6 +294,13 @@ export default function NewsPage() {
             <SelectItem value="breaking">Breaking</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={filterReporter} onValueChange={setFilterReporter}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Reporter" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Reporters</SelectItem>
+            {reporters.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Table */}
@@ -301,9 +314,11 @@ export default function NewsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12"></TableHead>
-                    <TableHead className="min-w-[250px]">Title</TableHead>
+                    <TableHead className="min-w-[220px]">Title</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>District</TableHead>
+                    <TableHead>Reporter</TableHead>
+                    <TableHead>Approved By</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Views</TableHead>
@@ -322,7 +337,7 @@ export default function NewsPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium max-w-[300px] truncate">{item.title}</div>
+                        <div className="font-medium max-w-[280px] truncate">{item.title}</div>
                         {item.tags?.length > 0 && (
                           <div className="flex gap-1 mt-1">
                             {item.tags.slice(0, 3).map(t => (
@@ -338,6 +353,44 @@ export default function NewsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm">{item.district?.name || '-'}</TableCell>
+                      <TableCell>
+                        {item.reporter ? (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1.5 font-medium text-xs text-blue-600 hover:text-blue-800 hover:underline text-left cursor-pointer"
+                            onClick={() => {
+                              setSelectedReporterId(item.reporter!.id)
+                              setActiveView('reporters')
+                            }}
+                            title="Click to view reporter profile & performance"
+                          >
+                            {item.reporter.avatar ? (
+                              <img src={item.reporter.avatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                            ) : (
+                              <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 font-bold text-[10px] flex items-center justify-center">
+                                {item.reporter.name.charAt(0)}
+                              </span>
+                            )}
+                            <span className="truncate max-w-[110px]">{item.reporter.name}</span>
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Admin/Staff</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {item.approver?.name || (item.status === 'published' && item.admin?.name) ? (
+                          <div>
+                            <span className="font-medium text-slate-800">
+                              {item.approver?.name || item.admin?.name}
+                            </span>
+                            <span className="block text-[10px] text-muted-foreground">
+                              {new Date(item.approvedAt || item.publishedAt || item.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">-</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge className={priorityColors[item.priority] || ''}>{item.priority}</Badge>
                       </TableCell>

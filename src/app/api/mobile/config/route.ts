@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getAdMobConfig } from '@/lib/ad-engine'
 
 export async function GET() {
   try {
-    const settings = await db.setting.findMany()
+    const [settings, admobConfig] = await Promise.all([
+      db.setting.findMany(),
+      getAdMobConfig()
+    ])
+
     const config: Record<string, string> = {}
     for (const s of settings) {
       config[s.key] = s.value
@@ -24,12 +29,16 @@ export async function GET() {
         hardBlock: config.force_update_hard_block === 'true',
       },
       admob: {
-        enabled: config.admob_enabled === 'true',
-        bannerId: config.admob_banner_id || '',
-        interstitialId: config.admob_interstitial_id || '',
-        nativeId: config.admob_native_id || '',
-        rewardedId: config.admob_rewarded_id || '',
-        frequencyCap: parseInt(config.admob_frequency_cap || '5'),
+        enabled: admobConfig.isEnabled,
+        testMode: admobConfig.testMode,
+        primaryStrategy: admobConfig.primaryStrategy,
+        bannerId: admobConfig.androidBannerId || config.admob_banner_id || '',
+        interstitialId: admobConfig.androidInterstitialId || config.admob_interstitial_id || '',
+        nativeId: admobConfig.androidNativeId || config.admob_native_id || '',
+        rewardedId: admobConfig.androidRewardedId || config.admob_rewarded_id || '',
+        frequencyCap: admobConfig.feedAdFrequency || 5,
+        nativeEnabled: admobConfig.nativeEnabled,
+        bannerEnabled: admobConfig.bannerEnabled,
       },
       maintenance: {
         enabled: config.maintenance_mode === 'true',

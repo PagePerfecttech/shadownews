@@ -148,7 +148,8 @@ model Admin {
   updatedAt    DateTime   @updatedAt @map("updated_at")
   deletedAt    DateTime?  @map("deleted_at")
   auditLogs    AuditLog[]
-  news         News[]
+  news         News[]     @relation("NewsCreator")
+  approvedNews News[]     @relation("NewsApprover")
 
   @@map("admins")
 }
@@ -158,6 +159,7 @@ model Reporter {
   name               String
   phone              String    @unique
   email              String?
+  passwordHash       String?   @map("password_hash")
   avatar             String?
   bio                String?
   stateId            String    @map("state_id")
@@ -166,6 +168,9 @@ model Reporter {
   beat               String?
   status             String    @default("pending")
   role               String    @default("junior")
+  postingScope       String    @default("mandal") @map("posting_scope")
+  allowedDistrictIds String    @default("[]") @map("allowed_district_ids")
+  allowedMandalIds   String    @default("[]") @map("allowed_mandal_ids")
   canPublishDirectly Boolean   @default(false) @map("can_publish_directly")
   performanceScore   Int       @default(0) @map("performance_score")
   approvedArticles   Int       @default(0) @map("approved_articles")
@@ -175,13 +180,22 @@ model Reporter {
   promotionStatus    String    @default("none") @map("promotion_status")
   coinsBalance       Int       @default(0) @map("coins_balance")
   earningsBalance    Float     @default(0.0) @map("earnings_balance")
+  totalEarnings      Float     @default(0.0) @map("total_earnings")
+  currentStreakDays  Int       @default(0) @map("current_streak_days")
+  lastPostedAt       DateTime? @map("last_posted_at")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
   deletedAt          DateTime? @map("deleted_at")
   idProofUrl         String?   @map("id_proof_url")
+  upiId              String?   @map("upi_id")
+  bankAccountNumber  String?   @map("bank_account_number")
+  bankIfsc           String?   @map("bank_ifsc")
+  bankAccountName    String?   @map("bank_account_name")
+  lastWithdrawalAt   DateTime? @map("last_withdrawal_at")
   news               News[]
   walletTransactions WalletTransaction[]
   withdrawalRequests WithdrawalRequest[]
+  levelAudits        ReporterLevelAudit[]
   district           District  @relation(fields: [districtId], references: [id])
   mandal             Mandal?   @relation(fields: [mandalId], references: [id])
   state              State     @relation(fields: [stateId], references: [id])
@@ -200,6 +214,22 @@ model User {
   mandalId            String?         @map("mandal_id")
   preferredLanguage   String          @default("te") @map("preferred_language")
   fcmToken            String?         @map("fcm_token")
+  gender              String?
+  dob                 DateTime?
+  notificationsEnabled Boolean        @default(true) @map("notifications_enabled")
+  notifyBreaking      Boolean         @default(true) @map("notify_breaking")
+  notifyLocation      Boolean         @default(true) @map("notify_location")
+  notifyCategories    Boolean         @default(true) @map("notify_categories")
+  notifyReporters     Boolean         @default(true) @map("notify_reporters")
+  notifyRewards       Boolean         @default(true) @map("notify_rewards")
+  notifyPromotions    Boolean         @default(true) @map("notify_promotions")
+  quietHoursEnabled   Boolean         @default(false) @map("quiet_hours_enabled")
+  quietHoursStart     String?         @default("22:00") @map("quiet_hours_start")
+  quietHoursEnd       String?         @default("07:00") @map("quiet_hours_end")
+  lastActiveAt        DateTime?       @default(now()) @map("last_active_at")
+  appVersion          String?         @map("app_version")
+  devicePlatform      String?         @map("device_platform")
+  deviceModel         String?         @map("device_model")
   isActive            Boolean         @default(true) @map("is_active")
   isPremium           Boolean         @default(false) @map("is_premium")
   createdAt           DateTime        @default(now()) @map("created_at")
@@ -217,7 +247,13 @@ model User {
   assembly            Assembly?       @relation(fields: [assemblyId], references: [id])
   village             Village?        @relation(fields: [villageId], references: [id])
   videoReactions      VideoReaction[]
+  newsReports         NewsReport[]
+  appFeedbacks        AppFeedback[]
 
+  @@index([createdAt(sort: Desc)])
+  @@index([lastActiveAt(sort: Desc)])
+  @@index([isActive])
+  @@index([districtId])
   @@map("users")
 }
 
@@ -255,7 +291,10 @@ model News {
   assemblyId   String?        @map("assembly_id")
   villageId    String?        @map("village_id")
   category     Category       @relation(fields: [categoryId], references: [id])
-  admin        Admin          @relation(fields: [createdBy], references: [id])
+  admin        Admin          @relation("NewsCreator", fields: [createdBy], references: [id])
+  approvedBy   String?        @map("approved_by")
+  approvedAt   DateTime?      @map("approved_at")
+  approver     Admin?         @relation("NewsApprover", fields: [approvedBy], references: [id])
   district     District?      @relation(fields: [districtId], references: [id])
   mandal       Mandal?        @relation(fields: [mandalId], references: [id])
   assembly     Assembly?      @relation(fields: [assemblyId], references: [id])
@@ -270,11 +309,14 @@ model News {
   aiShortDesc          String?        @map("ai_short_desc")
   aiContent            String?        @map("ai_content")
   aiStatus             String?        @default("none") @map("ai_status")
+  reports              NewsReport[]
 
   @@index([status, deletedAt, publishedAt(sort: Desc)])
+  @@index([status, deletedAt, stateId, publishedAt(sort: Desc)])
   @@index([status, deletedAt, categoryId, publishedAt(sort: Desc)])
   @@index([status, deletedAt, districtId, publishedAt(sort: Desc)])
   @@index([status, deletedAt, mandalId, publishedAt(sort: Desc)])
+  @@index([stateId, districtId, mandalId])
   @@index([status, publishedAt(sort: Desc), districtId])
   @@index([status, publishedAt(sort: Desc), categoryId])
   @@index([status, publishedAt(sort: Desc), assemblyId])
@@ -307,15 +349,22 @@ model CustomAd {
   id                String    @id @default(cuid())
   title             String
   advertiser        String
-  type              String    @default("image")
+  type              String    @default("image") // "image", "poster", "video"
   imagesUrls        String    @default("[]") @map("images_urls")
   layout            String    @default("grid")
   videoUrl          String?   @map("video_url")
+  videoThumbnailUrl String?   @map("video_thumbnail_url")
+  skipAfterSeconds  Int       @default(5) @map("skip_after_seconds")
   clickUrl          String?   @map("click_url")
-  buttonText        String?   @map("button_text")
-  placement         String    @default("feed_inline")
+  buttonText        String?   @default("Learn More") @map("button_text")
+  ctaText           String?   @default("Learn More") @map("cta_text")
+  placement         String    @default("feed_inline") // "feed_inline", "home_banner", "interstitial", "video"
+  priority          Int       @default(1) // 1-10 rotation weight
   frequency         Int       @default(5) @map("frequency")
+  dailyCap          Int       @default(0) @map("daily_cap") // 0 = unlimited
   targetStateIds    String    @default("[]") @map("target_state_ids")
+  targetDistrictIds String    @default("[]") @map("target_district_ids")
+  targetMandalIds   String    @default("[]") @map("target_mandal_ids")
   targetCategoryIds String    @default("[]") @map("target_category_ids")
   impressionsLimit  Int       @default(0) @map("impressions_limit")
   impressionsServed Int       @default(0) @map("impressions_served")
@@ -327,7 +376,43 @@ model CustomAd {
   updatedAt         DateTime  @updatedAt @map("updated_at")
   deletedAt         DateTime? @map("deleted_at")
 
+  @@index([isActive, deletedAt, placement])
   @@map("custom_ads")
+}
+
+model AdMobConfig {
+  id                    String   @id @default("default")
+  isEnabled             Boolean  @default(true) @map("is_enabled")
+  testMode              Boolean  @default(false) @map("test_mode")
+  primaryStrategy       String   @default("direct_first") @map("primary_strategy") // "direct_first", "admob_first", "direct_only", "admob_only"
+  feedAdFrequency       Int      @default(5) @map("feed_ad_frequency")
+
+  // Format Toggles
+  nativeEnabled         Boolean  @default(true) @map("native_enabled")
+  bannerEnabled         Boolean  @default(true) @map("banner_enabled")
+  interstitialEnabled   Boolean  @default(false) @map("interstitial_enabled")
+  rewardedEnabled       Boolean  @default(false) @map("rewarded_enabled")
+  appOpenEnabled        Boolean  @default(false) @map("app_open_enabled")
+
+  // Android Ad Unit IDs
+  androidAppId          String   @default("") @map("android_app_id")
+  androidNativeId       String   @default("") @map("android_native_id")
+  androidBannerId       String   @default("") @map("android_banner_id")
+  androidInterstitialId String   @default("") @map("android_interstitial_id")
+  androidRewardedId     String   @default("") @map("android_rewarded_id")
+  androidAppOpenId      String   @default("") @map("android_app_open_id")
+
+  // iOS Ad Unit IDs
+  iosAppId              String   @default("") @map("ios_app_id")
+  iosNativeId           String   @default("") @map("ios_native_id")
+  iosBannerId           String   @default("") @map("ios_banner_id")
+  iosInterstitialId     String   @default("") @map("ios_interstitial_id")
+  iosRewardedId         String   @default("") @map("ios_rewarded_id")
+  iosAppOpenId          String   @default("") @map("ios_app_open_id")
+
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("admob_configs")
 }
 
 model PushNotification {
@@ -448,30 +533,106 @@ model Comment {
 }
 
 model WalletTransaction {
-  id          String   @id @default(cuid())
-  reporterId  String   @map("reporter_id")
-  amount      Int
-  type        String   // "CREDIT" or "DEBIT"
-  description String
-  referenceId String?  @map("reference_id") // ID of news/video or withdrawal request
-  createdAt   DateTime @default(now()) @map("created_at")
-  reporter    Reporter @relation(fields: [reporterId], references: [id])
+  id                String   @id @default(cuid())
+  reporterId        String   @map("reporter_id")
+  amount            Int      // coins amount
+  moneyAmount       Float    @default(0.0) @map("money_amount") // cash value in ₹
+  type              String   // "CREDIT" or "DEBIT"
+  txCategory        String   @default("reward") @map("tx_category") // "reward", "bonus", "penalty", "withdrawal", "adjustment", "reversal"
+  description       String
+  referenceId       String?  @map("reference_id") // ID of news/video or withdrawal request
+  balanceAfter      Float    @default(0.0) @map("balance_after") // derived cash balance in ₹ after tx
+  coinsBalanceAfter Int      @default(0) @map("coins_balance_after")
+  status            String   @default("completed") // "pending", "completed", "reversed", "failed"
+  reversalOfId      String?  @map("reversal_of_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  reporter          Reporter @relation(fields: [reporterId], references: [id])
 
+  @@index([reporterId, createdAt(sort: Desc)])
   @@map("wallet_transactions")
 }
 
-model WithdrawalRequest {
-  id          String   @id @default(cuid())
-  reporterId  String   @map("reporter_id")
-  coinsAmount Int      @map("coins_amount")
-  moneyAmount Float    @map("money_amount")
-  upiId       String   @map("upi_id")
-  status      String   @default("pending") // "pending", "processing", "completed", "rejected"
-  adminNotes  String?  @map("admin_notes")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  reporter    Reporter @relation(fields: [reporterId], references: [id])
+model ReporterLevelConfig {
+  id                      String   @id @default(cuid())
+  levelKey                String   @unique @map("level_key") // "trainee", "junior", "senior", "mandal_head", "district_head", "state_head"
+  displayName             String   @map("display_name")
+  rankOrder               Int      @default(1) @map("rank_order")
+  badgeColor              String   @default("#6B7280") @map("badge_color")
+  
+  // Promotion eligibility thresholds
+  minApprovedArticles     Int      @default(0) @map("min_approved_articles")
+  minApprovalRate         Float    @default(0.0) @map("min_approval_rate") // e.g. 70.0%
+  minTotalViews           Int      @default(0) @map("min_total_views")
+  minPerformanceScore     Int      @default(0) @map("min_performance_score")
+  maxWarningsAllowed      Int      @default(3) @map("max_warnings_allowed")
+  maxFakeNewsAllowed      Int      @default(0) @map("max_fake_news_allowed")
 
+  // Demotion threshold
+  demotionScoreThreshold  Int      @default(0) @map("demotion_score_threshold")
+
+  // Submission limits
+  dailyPostLimit          Int      @default(5) @map("daily_post_limit")
+  weeklyPostLimit         Int      @default(25) @map("weekly_post_limit")
+  perCategoryDailyLimit   Int      @default(3) @map("per_category_daily_limit")
+
+  // Reward rates in ₹ INR
+  payPerApprovedArticle   Float    @default(3.0) @map("pay_per_approved_article")
+  breakingBonus           Float    @default(2.0) @map("breaking_bonus")
+  exclusiveBonus          Float    @default(5.0) @map("exclusive_bonus")
+  viewsBonusThreshold     Int      @default(1000) @map("views_bonus_threshold") // per X views
+  viewsBonusAmount        Float    @default(1.0) @map("views_bonus_amount")
+  penaltyRejectedArticle  Float    @default(1.0) @map("penalty_rejected_article")
+  penaltyFakeNews         Float    @default(10.0) @map("penalty_fake_news")
+  minWithdrawalInr        Float    @default(500.0) @map("min_withdrawal_inr")
+
+  canPublishDirectly      Boolean  @default(false) @map("can_publish_directly")
+  isActive                Boolean  @default(true) @map("is_active")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  @@map("reporter_level_configs")
+}
+
+model ReporterLevelAudit {
+  id              String   @id @default(cuid())
+  reporterId      String   @map("reporter_id")
+  fromLevel       String   @map("from_level")
+  toLevel         String   @map("to_level")
+  action          String   // "promoted", "demoted", "manual_override"
+  reason          String?
+  metricsSnapshot String   @default("{}") @map("metrics_snapshot")
+  changedBy       String?  @map("changed_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  reporter        Reporter @relation(fields: [reporterId], references: [id])
+
+  @@index([reporterId, createdAt(sort: Desc)])
+  @@map("reporter_level_audits")
+}
+
+model WithdrawalRequest {
+  id                   String    @id @default(cuid())
+  reporterId           String    @map("reporter_id")
+  coinsAmount          Int       @default(0) @map("coins_amount")
+  moneyAmount          Float     @map("money_amount")
+  balanceAtRequest     Float?    @map("balance_at_request")
+  payoutMethod         String    @default("upi") @map("payout_method") // "upi", "bank_transfer"
+  upiId                String?   @map("upi_id")
+  bankAccountNumber    String?   @map("bank_account_number")
+  bankIfsc             String?   @map("bank_ifsc")
+  bankAccountName      String?   @map("bank_account_name")
+  status               String    @default("pending") // "pending", "approved", "completed", "rejected"
+  transactionReference String?   @map("transaction_reference") // UTR / payment ID
+  rejectionReason      String?   @map("rejection_reason")
+  adminNotes           String?   @map("admin_notes")
+  processedBy          String?   @map("processed_by")
+  processedAt          DateTime? @map("processed_at")
+  walletTransactionId  String?   @map("wallet_transaction_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  reporter             Reporter  @relation(fields: [reporterId], references: [id])
+
+  @@index([reporterId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
   @@map("withdrawal_requests")
 }
 
@@ -495,4 +656,45 @@ model UserPreference {
 
   @@unique([userId, categoryId])
   @@map("user_preferences")
+}
+
+model NewsReport {
+  id          String    @id @default(cuid())
+  newsId      String    @map("news_id")
+  userId      String?   @map("user_id")
+  reporterIp  String?   @map("reporter_ip")
+  reason      String    // "fake_news", "hate_speech", "misleading", "copyright", "duplicate", "other"
+  details     String?
+  status      String    @default("pending") // "pending", "resolved_dismissed", "resolved_removed"
+  actionNotes String?   @map("action_notes")
+  resolvedBy  String?   @map("resolved_by")
+  resolvedAt  DateTime? @map("resolved_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  news        News      @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([newsId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("news_reports")
+}
+
+model AppFeedback {
+  id          String    @id @default(cuid())
+  userId      String?   @map("user_id")
+  rating      Int       // 1 to 5 stars
+  feedback    String?
+  category    String?   @default("general") // "bug", "content_quality", "app_performance", "general"
+  appVersion  String?   @map("app_version")
+  deviceInfo  String?   @map("device_info")
+  status      String    @default("new") // "new", "reviewed", "closed"
+  adminNotes  String?   @map("admin_notes")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([rating, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("app_feedbacks")
 }

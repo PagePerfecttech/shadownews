@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyAuth } from '@/lib/auth'
 import { safeJsonParse, safeJsonStringify } from '@/lib/json-utils'
-import { processNewsApprovalEarning } from '@/lib/wallet-service'
+import { processNewsApprovalEarning, reverseNewsReward } from '@/lib/wallet-service'
 import { processNewsRejectionScore } from '@/lib/scoring-service'
 import { uploadToYouTubeShorts } from '@/lib/youtube-service'
 import { messaging } from '@/lib/firebase-admin'
@@ -23,7 +23,8 @@ export async function GET(
         state: true,
         district: true,
         reporter: true,
-        admin: { select: { name: true, email: true } },
+        approver: { select: { id: true, name: true, email: true } },
+        admin: { select: { id: true, name: true, email: true } },
         tags: { include: { tag: true } },
       },
     })
@@ -81,7 +82,11 @@ export async function PUT(
     if (data.priority !== undefined) updateData.priority = data.priority
     if (data.status !== undefined) {
       updateData.status = data.status
-      if (data.status === 'published' && !wasPublished) updateData.publishedAt = new Date()
+      if (data.status === 'published') {
+        if (!wasPublished) updateData.publishedAt = new Date()
+        updateData.approvedBy = admin.id
+        updateData.approvedAt = new Date()
+      }
     }
     if (data.isFeatured !== undefined) updateData.isFeatured = data.isFeatured
     if (data.expiresAt !== undefined) updateData.expiresAt = data.expiresAt ? new Date(data.expiresAt) : null
@@ -215,8 +220,13 @@ export async function PATCH(
       },
     })
 
-    if (data.status === 'rejected' && news.reporterId) {
-      await processNewsRejectionScore(news.reporterId)
+    if (data.status === 'rejected') {
+      if (wasPublished) {
+        await reverseNewsReward(id, data.rejectReason || 'Article rejected after publication')
+      }
+      if (news.reporterId) {
+        await processNewsRejectionScore(news.reporterId)
+      }
     }
 
     if (data.status === 'published' && !wasPublished) {
@@ -285,6 +295,11 @@ export async function DELETE(
     if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { id } = await params
+    const existing = await db.news.findUnique({ where: { id }, select: { status: true } })
+    if (existing?.status === 'published') {
+      await reverseNewsReward(id, 'Article deleted by admin')
+    }
+
     await db.news.update({
       where: { id },
       data: { deletedAt: new Date() },

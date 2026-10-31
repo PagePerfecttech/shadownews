@@ -8,7 +8,8 @@ import { generateAINewsRewrite } from '@/lib/gemini-service'
 
 import { applyWatermark } from '@/lib/watermark'
 import { generate5CharNewsId } from '@/lib/id-generator'
-import { findReporterFromToken } from '@/lib/reporter-utils'
+import { findReporterFromToken, checkReporterPostingScope } from '@/lib/reporter-utils'
+import { checkSubmissionLimit } from '@/lib/reward-engine'
 
 async function uploadFileToR2(file: File, prefix: string): Promise<string> {
   const timestamp = Date.now()
@@ -195,48 +196,42 @@ export async function POST(request: NextRequest) {
        return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Daily posting limit check (Crime category exempt)
+    // Daily posting limit check via unified rules engine (Crime category exempt)
     const category = await db.category.findUnique({ where: { id: categoryId } })
     const isCrimeCategory = category?.name?.toLowerCase().includes('crime') || category?.slug?.toLowerCase().includes('crime')
 
     if (!isCrimeCategory) {
-      const isSenior = reporter.role === 'senior' || reporter.canPublishDirectly
-      const limitKey = isSenior ? 'limit_senior_daily' : 'limit_junior_daily'
-      const defaultLimit = isSenior ? 30 : 15
-      const setting = await db.setting.findUnique({ where: { key: limitKey } })
-      const maxDailyLimit = setting ? parseInt(setting.value, 10) : defaultLimit
-
-      const startOfDay = new Date()
-      startOfDay.setHours(0, 0, 0, 0)
-
-      const todaySubmissionsCount = await db.news.count({
-        where: {
-          reporterId: reporter.id,
-          createdAt: { gte: startOfDay },
-          deletedAt: null,
-        },
-      })
-
-      if (todaySubmissionsCount >= maxDailyLimit) {
+      const limitCheck = await checkSubmissionLimit(reporter.id, categoryId)
+      if (!limitCheck.allowed) {
         return NextResponse.json({
-          error: `Daily submission limit reached (${maxDailyLimit} news/day for ${isSenior ? 'Senior' : 'Junior'} Reporters). Crime news is exempt from limits.`,
+          error: limitCheck.reason,
+          remainingToday: limitCheck.remainingToday,
+          dailyLimit: limitCheck.dailyLimit,
         }, { status: 429 })
       }
     }
     
     // Auto-resolve state from district if district is chosen, fallback to reporter's assigned jurisdiction
-    districtId = districtId || reporter.districtId;
-    mandalId = mandalId || reporter.mandalId;
-    if (districtId && !stateId) {
+    // Support "all_districts" and "all_mandals"
+    if (districtId === 'all' || districtId === 'all_districts' || districtId === '') districtId = null;
+    if (mandalId === 'all' || mandalId === 'all_mandals' || mandalId === '') mandalId = null;
+
+    if (!stateId && districtId) {
       const dist = await db.district.findUnique({ where: { id: districtId }, select: { stateId: true } });
       if (dist?.stateId) {
         stateId = dist.stateId;
       }
     }
     stateId = stateId || reporter.stateId;
-    
+
     if (!stateId) {
        return NextResponse.json({ error: 'Reporter location not configured' }, { status: 400 })
+    }
+
+    // Verify reporter's posting scope permissions
+    const scopeCheck = checkReporterPostingScope(reporter, { stateId, districtId, mandalId });
+    if (!scopeCheck.allowed) {
+      return NextResponse.json({ error: scopeCheck.error }, { status: 403 });
     }
 
     if (thumbnailBase64) {

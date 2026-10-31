@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
 import { verifyFirebaseToken } from '@/lib/firebase-admin'
 import { findReporterFromToken } from '@/lib/reporter-utils'
+import { requestReporterWithdrawal } from '@/lib/reward-engine'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,91 +10,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    let decodedToken;
+    let decodedToken
     try {
-      decodedToken = await verifyFirebaseToken(authHeader);
-    } catch (e: any) {
+      decodedToken = await verifyFirebaseToken(authHeader)
+    } catch {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const reporter = await findReporterFromToken(decodedToken)
-
     if (!reporter) {
-      return NextResponse.json({ error: 'Reporter not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Reporter profile not found' }, { status: 404 })
     }
 
-    const data = await request.json()
-    const { coins, upiId } = data
-
-    if (!coins || isNaN(coins) || coins <= 0) {
-      return NextResponse.json({ error: 'Invalid coin amount' }, { status: 400 })
+    const body = await request.json()
+    // Accept either direct amount in ₹ or coins (backwards compatible)
+    let requestedInr = 0
+    if (typeof body.amount === 'number' && body.amount > 0) {
+      requestedInr = body.amount
+    } else if (typeof body.coins === 'number' && body.coins > 0) {
+      requestedInr = body.coins / 100 // 100 coins = ₹1
+    } else {
+      return NextResponse.json({ error: 'Please enter a valid withdrawal amount.' }, { status: 400 })
     }
 
-    if (!upiId || typeof upiId !== 'string') {
-      return NextResponse.json({ error: 'Invalid UPI ID' }, { status: 400 })
-    }
+    const payoutMethod = body.payoutMethod === 'bank_transfer' ? 'bank_transfer' : 'upi'
 
-    if (reporter.coinsBalance < coins) {
-      return NextResponse.json({ error: 'Insufficient coins' }, { status: 400 })
-    }
-
-    const rateSetting = await db.setting.findUnique({ where: { key: 'COINS_PER_INR' } })
-    const coinsPerInr = rateSetting && !isNaN(parseFloat(rateSetting.value)) ? parseFloat(rateSetting.value) : 100 // Default: 100 coins = 1 INR
-    const conversionRate = 1 / coinsPerInr
-
-    const moneyAmount = coins * conversionRate
-
-    if (moneyAmount < 1000) {
-      return NextResponse.json({ error: 'Minimum withdrawal amount is ₹1,000' }, { status: 400 })
-    }
-
-    const withdrawal = await db.$transaction(async (tx) => {
-      // Atomic conditional check & decrement to eliminate double-spend race condition
-      const updateResult = await tx.reporter.updateMany({
-        where: {
-          id: reporter.id,
-          coinsBalance: { gte: coins },
-        },
-        data: {
-          coinsBalance: { decrement: coins },
-        },
-      })
-
-      if (updateResult.count === 0) {
-        throw new Error('INSUFFICIENT_COINS')
-      }
-
-      // Create request
-      const req = await tx.withdrawalRequest.create({
-        data: {
-          reporterId: reporter.id,
-          coinsAmount: coins,
-          moneyAmount,
-          upiId,
-          status: 'pending'
-        }
-      })
-
-      // Log transaction
-      await tx.walletTransaction.create({
-        data: {
-          reporterId: reporter.id,
-          amount: coins,
-          type: 'DEBIT',
-          description: `Withdrawal request to UPI ${upiId}`,
-          referenceId: req.id
-        }
-      })
-
-      return req
+    const result = await requestReporterWithdrawal({
+      reporterId: reporter.id,
+      amount: requestedInr,
+      payoutMethod,
+      upiId: body.upiId,
+      bankAccountNumber: body.bankAccountNumber,
+      bankIfsc: body.bankIfsc,
+      bankAccountName: body.bankAccountName,
     })
 
-    return NextResponse.json(withdrawal, { status: 201 })
-  } catch (error: any) {
-    if (error?.message === 'INSUFFICIENT_COINS') {
-      return NextResponse.json({ error: 'Insufficient coins' }, { status: 400 })
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 400 })
     }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Withdrawal request submitted successfully.',
+      withdrawal: result.withdrawal,
+      balanceAfter: result.balanceAfter,
+    }, { status: 201 })
+  } catch (error: any) {
     console.error('Wallet withdraw error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: error?.message || 'Internal server error' }, { status: 500 })
   }
 }

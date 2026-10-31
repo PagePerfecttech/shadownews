@@ -13,6 +13,7 @@ export type ViewType =
   | 'ads'
   | 'reporters'
   | 'reporter-performance'
+  | 'reward-rules'
   | 'users'
   | 'admins'
   | 'notifications'
@@ -20,6 +21,7 @@ export type ViewType =
   | 'media'
   | 'audit-logs'
   | 'withdrawals'
+  | 'reports'
 
 interface AdminUser {
   id: string
@@ -35,7 +37,9 @@ interface AppState {
   currentUser: AdminUser | null
   sidebarOpen: boolean
   pendingAction: string | null
+  selectedReporterId: string | null
   setActiveView: (view: ViewType, action?: string | null) => void
+  setSelectedReporterId: (id: string | null) => void
   setAuthenticated: (auth: boolean) => void
   setCurrentUser: (user: AdminUser | null) => void
   setSidebarOpen: (open: boolean) => void
@@ -51,7 +55,9 @@ export const useAppStore = create<AppState>()(
       currentUser: null,
       sidebarOpen: true,
       pendingAction: null,
+      selectedReporterId: null,
       setActiveView: (view, action) => set({ activeView: view, pendingAction: action || null }),
+      setSelectedReporterId: (id) => set({ selectedReporterId: id }),
       setAuthenticated: (auth) => set({ isAuthenticated: auth }),
       setCurrentUser: (user) => set({ currentUser: user }),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),

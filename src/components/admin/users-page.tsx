@@ -8,28 +8,41 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 import {
   Search,
-  Star,
   Eye,
-  Pencil,
-  Trash2,
   ChevronLeft,
   ChevronRight,
   Users,
   Phone,
+  Mail,
   MapPin,
-  Globe,
   Calendar,
   ShieldCheck,
-  ShieldX,
+  ShieldAlert,
+  Download,
+  Activity,
+  UserCheck,
+  Clock,
+  Smartphone,
+  Bell,
+  BellOff,
+  Filter,
+  RefreshCw,
+  Sparkles,
 } from 'lucide-react'
-import { authFetch, authFetchJSON, authFetchJson } from '@/lib/utils'
+import { authFetch, authFetchJson } from '@/lib/utils'
+import { UserDetailModal } from './user-detail-modal'
 
 interface UserItem {
   id: string
@@ -43,16 +56,23 @@ interface UserItem {
   preferredLanguage: string
   isActive: boolean
   isPremium: boolean
+  notificationsEnabled: boolean
+  appVersion: string | null
+  devicePlatform: string | null
+  lastActiveAt: string | null
   createdAt: string
-  state: { name: string } | null
-  district: { name: string } | null
-  mandal: { name: string } | null
+  state: { id: string; name: string } | null
+  district: { id: string; name: string } | null
+  mandal: { id: string; name: string } | null
+  _count?: {
+    bookmarks: number
+    comments: number
+  }
 }
 
 interface State {
   id: string
   name: string
-  code: string
 }
 
 interface District {
@@ -72,42 +92,66 @@ interface UsersResponse {
   total: number
   page: number
   limit: number
+  totalPages: number
+}
+
+interface UserStats {
+  totalUsers: number
+  activeUsers: number
+  blockedUsers: number
+  newToday: number
+  newThisWeek: number
+  dau: number
+  mau: number
+  topDistricts: Array<{
+    districtId: string | null
+    name: string
+    count: number
+  }>
 }
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserItem[]>([])
+  const [stats, setStats] = useState<UserStats | null>(null)
+  const [statsLoading, setStatsLoading] = useState(true)
+
   const [states, setStates] = useState<State[]>([])
   const [districts, setDistricts] = useState<District[]>([])
   const [mandals, setMandals] = useState<Mandal[]>([])
+
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+
+  // Filters
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'blocked'>('all')
+  const [activeFilter, setActiveFilter] = useState<'all' | 'today' | '7d' | '30d' | 'inactive'>('all')
   const [stateId, setStateId] = useState('')
   const [districtId, setDistrictId] = useState('')
   const [mandalId, setMandalId] = useState('')
-  const limit = 20
+  const [sortBy, setSortBy] = useState<'createdAt' | 'lastActiveAt' | 'name'>('createdAt')
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
 
-  // Edit dialog
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [editUser, setEditUser] = useState<UserItem | null>(null)
-  const [editForm, setEditForm] = useState({
-    name: '',
-    isActive: true,
-    isPremium: false,
-    districtId: '',
-    mandalId: '',
-    stateId: '',
-  })
-  const [saving, setSaving] = useState(false)
+  // Export state
+  const [exporting, setExporting] = useState(false)
 
-  // View dialog
-  const [viewDialogOpen, setViewDialogOpen] = useState(false)
-  const [viewUser, setViewUser] = useState<UserItem | null>(null)
+  // Detail Modal state
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
-  // Delete confirmation
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null)
+  const fetchStats = async () => {
+    setStatsLoading(true)
+    try {
+      const data = await authFetchJson<UserStats>('/api/admin/users/stats')
+      setStats(data)
+    } catch {
+      // Non-critical, ignore
+    } finally {
+      setStatsLoading(false)
+    }
+  }
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -115,786 +159,591 @@ export default function UsersPage() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
+        sortBy,
+        sortOrder,
       })
       if (search) params.set('search', search)
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (activeFilter !== 'all') params.set('activeFilter', activeFilter)
       if (stateId) params.set('stateId', stateId)
       if (districtId) params.set('districtId', districtId)
       if (mandalId) params.set('mandalId', mandalId)
 
       const data = await authFetchJson<UsersResponse>(`/api/admin/users?${params.toString()}`)
-      setUsers(data.users)
-      setTotal(data.total)
+      setUsers(data.users || [])
+      setTotal(data.total || 0)
     } catch {
-      toast.error('Failed to load users')
+      toast.error('Failed to load app users')
     } finally {
       setLoading(false)
     }
-  }, [page, search, stateId, districtId, mandalId])
+  }, [page, limit, search, statusFilter, activeFilter, stateId, districtId, mandalId, sortBy, sortOrder])
+
+  useEffect(() => {
+    fetchStats()
+    authFetchJson<State[]>('/api/admin/states')
+      .then(setStates)
+      .catch(() => { })
+    authFetchJson<District[]>('/api/admin/districts')
+      .then(setDistricts)
+      .catch(() => { })
+    authFetchJson<Mandal[]>('/api/admin/mandals')
+      .then(setMandals)
+      .catch(() => { })
+  }, [])
 
   useEffect(() => {
     fetchUsers()
   }, [fetchUsers])
 
-  useEffect(() => {
-    authFetchJson<State[]>('/api/admin/states')
-      .then(setStates)
-      .catch(() => toast.error('Failed to load states'))
-    authFetchJson<District[]>('/api/admin/districts')
-      .then(setDistricts)
-      .catch(() => toast.error('Failed to load districts'))
-    authFetchJson<Mandal[]>('/api/admin/mandals')
-      .then(setMandals)
-      .catch(() => toast.error('Failed to load mandals'))
-  }, [])
-
-  // Reset to page 1 when filters change
-  const handleSearchChange = (value: string) => {
-    setSearch(value)
-    setPage(1)
-  }
-
-  const handleStateChange = (value: string) => {
-    setStateId(value)
-    setDistrictId('')
-    setMandalId('')
-    setPage(1)
-  }
-
-  const handleDistrictChange = (value: string) => {
-    setDistrictId(value)
-    setMandalId('') // Reset mandal when district changes
-    setPage(1)
-  }
-
-  const handleMandalChange = (value: string) => {
-    setMandalId(value)
-    setPage(1)
-  }
-
-  const openEdit = (user: UserItem) => {
-    setEditUser(user)
-    setEditForm({
-      name: user.name || '',
-      isActive: user.isActive,
-      isPremium: user.isPremium,
-      districtId: user.districtId || '',
-      mandalId: user.mandalId || '',
-      stateId: user.stateId || '',
-    })
-    setEditDialogOpen(true)
-  }
-
-  const openView = (user: UserItem) => {
-    setViewUser(user)
-    setViewDialogOpen(true)
-  }
-
-  const handleSave = async () => {
-    if (!editUser) return
+  const handleExportCSV = async () => {
+    setExporting(true)
     try {
-      setSaving(true)
-      const res = await authFetchJSON(`/api/admin/users/${editUser.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(editForm),
+      const params = new URLSearchParams({
+        export: 'csv',
+        sortBy,
+        sortOrder,
       })
-      if (!res.ok) throw new Error('Failed to update')
-      toast.success('User updated successfully')
-      setEditDialogOpen(false)
-      setEditUser(null)
-      fetchUsers()
-    } catch {
-      toast.error('Failed to update user')
+      if (search) params.set('search', search)
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (activeFilter !== 'all') params.set('activeFilter', activeFilter)
+      if (stateId) params.set('stateId', stateId)
+      if (districtId) params.set('districtId', districtId)
+      if (mandalId) params.set('mandalId', mandalId)
+
+      const res = await authFetch(`/api/admin/users?${params.toString()}`)
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `app-users-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      toast.success('App users exported to CSV successfully')
+    } catch (e: any) {
+      toast.error(e.message || 'CSV export failed')
     } finally {
-      setSaving(false)
+      setExporting(false)
     }
   }
 
-  const handlePremiumToggle = async (user: UserItem) => {
-    const newPremium = !user.isPremium
-    // Optimistic update
-    setUsers((prev) =>
-      prev.map((u) => (u.id === user.id ? { ...u, isPremium: newPremium } : u))
-    )
+  const handleQuickToggleStatus = async (user: UserItem) => {
     try {
-      const res = await authFetchJSON(`/api/admin/users/${user.id}`, {
+      const nextStatus = !user.isActive
+      const res = await authFetch(`/api/admin/users/${user.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ isPremium: newPremium }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: nextStatus }),
       })
-      if (!res.ok) throw new Error('Failed to toggle premium')
-      toast.success(newPremium ? 'Premium activated' : 'Premium deactivated')
-    } catch {
-      // Revert on error
-      setUsers((prev) =>
-        prev.map((u) => (u.id === user.id ? { ...u, isPremium: user.isPremium } : u))
-      )
-      toast.error('Failed to update premium status')
+      if (!res.ok) throw new Error('Update failed')
+      toast.success(nextStatus ? `Unblocked ${user.name || user.phone}` : `Blocked ${user.name || user.phone}`)
+      setUsers(prev => prev.map(u => (u.id === user.id ? { ...u, isActive: nextStatus } : u)))
+      fetchStats()
+    } catch (e: any) {
+      toast.error(e.message || 'Status update failed')
     }
   }
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return
-    try {
-      const res = await authFetch(`/api/admin/users/${deleteTarget.id}`, {
-        method: 'DELETE',
-      })
-      if (!res.ok) throw new Error('Failed to delete')
-      toast.success('User deleted successfully')
-      setDeleteDialogOpen(false)
-      setDeleteTarget(null)
-      fetchUsers()
-    } catch {
-      toast.error('Failed to delete user')
-    }
-  }
+  const filteredDistricts = stateId
+    ? districts.filter(d => d.stateId === stateId)
+    : districts
 
-  const totalPages = Math.ceil(total / limit)
-  const startIndex = (page - 1) * limit + 1
-  const endIndex = Math.min(page * limit, total)
+  const filteredMandals = districtId
+    ? mandals.filter(m => m.districtId === districtId)
+    : mandals
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
-  }
-
-  const getInitials = (name: string | null, phone: string) => {
-    if (name) {
-      return name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
-    }
-    return phone.slice(-2)
-  }
+  const totalPages = Math.ceil(total / limit) || 1
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div className="space-y-6">
+      {/* 1. Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Users className="h-6 w-6 text-red-600" />
-            App Users
+            App Users Management
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {total.toLocaleString('en-IN')} total users
+            Monitor active readers, engagement analytics, devices, and manage user moderation.
           </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              fetchUsers()
+              fetchStats()
+            }}
+            disabled={loading}
+            className="text-xs font-semibold gap-1.5"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={exporting || loading}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold gap-1.5"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {exporting ? 'Exporting...' : 'Export CSV'}
+          </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      {/* 2. KPI Analytics Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <Card className="border bg-white shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Total Readers</span>
+              <Users className="h-4 w-4 text-blue-600" />
+            </div>
+            <div className="text-2xl font-bold text-slate-800 mt-2">
+              {statsLoading ? <Skeleton className="h-7 w-16" /> : (stats?.totalUsers ?? total)}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+              <span className="text-emerald-600 font-semibold">{stats?.activeUsers ?? 0} active</span>
+              · {stats?.blockedUsers ?? 0} blocked
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border bg-white shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">DAU (24 Hours)</span>
+              <Activity className="h-4 w-4 text-emerald-600" />
+            </div>
+            <div className="text-2xl font-bold text-emerald-600 mt-2">
+              {statsLoading ? <Skeleton className="h-7 w-16" /> : (stats?.dau ?? 0)}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              Active readers today
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border bg-white shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">MAU (30 Days)</span>
+              <UserCheck className="h-4 w-4 text-purple-600" />
+            </div>
+            <div className="text-2xl font-bold text-purple-600 mt-2">
+              {statsLoading ? <Skeleton className="h-7 w-16" /> : (stats?.mau ?? 0)}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              Monthly active readers
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border bg-white shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">New Today</span>
+              <Sparkles className="h-4 w-4 text-amber-500" />
+            </div>
+            <div className="text-2xl font-bold text-amber-600 mt-2">
+              {statsLoading ? <Skeleton className="h-7 w-16" /> : (stats?.newToday ?? 0)}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              +{stats?.newThisWeek ?? 0} this week
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border bg-white shadow-sm col-span-2 lg:col-span-1">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Top District</span>
+              <MapPin className="h-4 w-4 text-red-500" />
+            </div>
+            <div className="text-base font-bold text-slate-800 mt-2 truncate">
+              {statsLoading ? (
+                <Skeleton className="h-6 w-20" />
+              ) : stats?.topDistricts?.[0] ? (
+                `${stats.topDistricts[0].name} (${stats.topDistricts[0].count})`
+              ) : (
+                'None'
+              )}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1 truncate">
+              {stats?.topDistricts?.slice(1, 3).map(d => `${d.name}: ${d.count}`).join(' · ') || 'No location data'}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 3. Search & Filter Bar */}
+      <Card className="border shadow-sm bg-white">
+        <CardContent className="p-4 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+            {/* Search */}
+            <div className="md:col-span-4 relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name or phone..."
+                placeholder="Search by name, phone (+91...), or email..."
                 value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-9"
+                onChange={e => {
+                  setSearch(e.target.value)
+                  setPage(1)
+                }}
+                className="pl-9 text-xs"
               />
             </div>
-            <div className="w-full sm:w-auto flex flex-wrap gap-2">
+
+            {/* Status Filter */}
+            <div className="md:col-span-2">
               <select
-                className="w-full sm:w-[160px] border rounded-md px-3 py-2 text-sm bg-background h-10"
+                value={statusFilter}
+                onChange={e => {
+                  setStatusFilter(e.target.value as any)
+                  setPage(1)
+                }}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
+              >
+                <option value="all">Status: All</option>
+                <option value="active">Active Readers</option>
+                <option value="blocked">Blocked Users</option>
+              </select>
+            </div>
+
+            {/* Activity Window Filter */}
+            <div className="md:col-span-2">
+              <select
+                value={activeFilter}
+                onChange={e => {
+                  setActiveFilter(e.target.value as any)
+                  setPage(1)
+                }}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
+              >
+                <option value="all">Activity: All</option>
+                <option value="today">Active Today (DAU)</option>
+                <option value="7d">Active in 7 Days</option>
+                <option value="30d">Active in 30 Days (MAU)</option>
+                <option value="inactive">Inactive (&gt;30 Days)</option>
+              </select>
+            </div>
+
+            {/* State Filter */}
+            <div className="md:col-span-2">
+              <select
                 value={stateId}
-                onChange={(e) => handleStateChange(e.target.value)}
+                onChange={e => {
+                  setStateId(e.target.value)
+                  setDistrictId('')
+                  setMandalId('')
+                  setPage(1)
+                }}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
               >
-                <option value="">All States</option>
-                {states.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
+                <option value="">State: All</option>
+                {states.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
+            </div>
 
+            {/* District Filter */}
+            <div className="md:col-span-2">
               <select
-                className="w-full sm:w-[160px] border rounded-md px-3 py-2 text-sm bg-background h-10"
                 value={districtId}
-                onChange={(e) => handleDistrictChange(e.target.value)}
-                disabled={!stateId}
+                onChange={e => {
+                  setDistrictId(e.target.value)
+                  setMandalId('')
+                  setPage(1)
+                }}
+                disabled={filteredDistricts.length === 0}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
               >
-                <option value="">All Districts</option>
-                {(stateId ? districts.filter((d) => d.stateId === stateId) : districts).map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
+                <option value="">District: All</option>
+                {filteredDistricts.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
+            </div>
+          </div>
 
-              <select
-                className="w-full sm:w-[200px] border rounded-md px-3 py-2 text-sm bg-background h-10"
-                value={mandalId}
-                onChange={(e) => handleMandalChange(e.target.value)}
-                disabled={!districtId}
-              >
-                <option value="">All Mandals</option>
-                {mandals
-                  .filter((m) => m.districtId === districtId)
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-              </select>
-
-              {/* Clear filters */}
-              {(search || stateId || districtId || mandalId) && (
+          <div className="flex flex-wrap items-center justify-between text-xs text-muted-foreground pt-1 border-t">
+            <div className="flex items-center gap-3">
+              <span>Showing {users.length} of {total} registered readers</span>
+              {(search || statusFilter !== 'all' || activeFilter !== 'all' || stateId || districtId) && (
                 <Button
                   variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setSearch('')
+                    setStatusFilter('all')
+                    setActiveFilter('all')
                     setStateId('')
                     setDistrictId('')
                     setMandalId('')
                     setPage(1)
                   }}
-                  className="h-10 px-3"
+                  className="h-6 text-xs text-red-600 px-2"
                 >
-                  Clear
+                  Clear Filters
                 </Button>
               )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs">Sort:</span>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as any)}
+                className="h-7 px-2 rounded border border-input bg-background text-xs"
+              >
+                <option value="createdAt">Joined Date</option>
+                <option value="lastActiveAt">Last Active</option>
+                <option value="name">Name</option>
+              </select>
+              <select
+                value={sortOrder}
+                onChange={e => setSortOrder(e.target.value as any)}
+                className="h-7 px-2 rounded border border-input bg-background text-xs"
+              >
+                <option value="desc">Desc</option>
+                <option value="asc">Asc</option>
+              </select>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Users Table */}
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-4 space-y-3">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-12" />
-              ))}
-            </div>
-          ) : users.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <Users className="h-12 w-12 mb-3 opacity-40" />
-              <p className="text-sm font-medium">No users found</p>
-              <p className="text-xs mt-1">
-                {search || stateId || districtId
-                  ? 'Try adjusting your search or filter'
-                  : 'Users will appear here when they sign up'}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead className="hidden md:table-cell">Location</TableHead>
-                    <TableHead>Language</TableHead>
-                    <TableHead>Premium</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden lg:table-cell">Joined</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+      {/* 4. Users Table */}
+      <Card className="border shadow-sm overflow-hidden bg-white">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-slate-50/80">
+              <TableRow>
+                <TableHead className="w-[240px]">Reader</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Language</TableHead>
+                <TableHead>Device / Version</TableHead>
+                <TableHead>Notifications</TableHead>
+                <TableHead>Activity</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-10 w-44" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      {/* Name with Avatar */}
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="bg-red-100 text-red-700 text-xs">
-                              {getInitials(user.name, user.phone)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm truncate max-w-[140px]">
-                              {user.name || '—'}
-                            </p>
-                            {user.email && (
-                              <p className="text-xs text-muted-foreground truncate max-w-[140px]">
-                                {user.email}
-                              </p>
-                            )}
+                ))
+              ) : users.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-40 text-center text-muted-foreground text-sm">
+                    No registered app users match your search and filter criteria.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                users.map(u => (
+                  <TableRow key={u.id} className="hover:bg-slate-50/60 transition-colors">
+                    {/* User info */}
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <Avatar className="h-9 w-9 border shrink-0">
+                          <AvatarImage src={u.avatar || undefined} />
+                          <AvatarFallback className="bg-slate-100 text-slate-700 font-semibold text-xs">
+                            {u.name ? u.name.slice(0, 2).toUpperCase() : 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-xs text-slate-900 truncate">
+                            {u.name || 'Unnamed Reader'}
                           </div>
-                        </div>
-                      </TableCell>
-
-                      {/* Phone */}
-                      <TableCell className="text-sm font-mono">
-                        {user.phone}
-                      </TableCell>
-
-                      {/* Location */}
-                      <TableCell className="hidden md:table-cell">
-                          <div className="flex flex-col text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {user.district?.name || '—'}
-                            </span>
-                            {user.mandal?.name && (
-                              <span className="flex items-center gap-1 text-xs ml-4 mt-0.5">
-                                • {user.mandal.name}
-                              </span>
-                            )}
+                          <div className="text-[11px] font-mono text-muted-foreground truncate">
+                            {u.phone}
                           </div>
-                      </TableCell>
-
-                      {/* Language Badge */}
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={
-                            user.preferredLanguage === 'te'
-                              ? 'border-orange-200 bg-orange-50 text-orange-700'
-                              : 'border-blue-200 bg-blue-50 text-blue-700'
-                          }
-                        >
-                          <Globe className="h-3 w-3 mr-1" />
-                          {user.preferredLanguage === 'te' ? 'TE' : 'EN'}
-                        </Badge>
-                      </TableCell>
-
-                      {/* Premium Toggle */}
-                      <TableCell>
-                        <button
-                          onClick={() => handlePremiumToggle(user)}
-                          className="inline-flex items-center gap-1.5 cursor-pointer group"
-                          title={user.isPremium ? 'Remove premium' : 'Grant premium'}
-                        >
-                          <Star
-                            className={`h-4 w-4 transition-colors ${
-                              user.isPremium
-                                ? 'fill-amber-400 text-amber-500'
-                                : 'text-gray-300 group-hover:text-amber-300'
-                            }`}
-                          />
-                          <span
-                            className={`text-xs font-medium ${
-                              user.isPremium ? 'text-amber-600' : 'text-muted-foreground'
-                            }`}
-                          >
-                            {user.isPremium ? 'Premium' : 'Free'}
-                          </span>
-                        </button>
-                      </TableCell>
-
-                      {/* Status */}
-                      <TableCell>
-                        <Badge
-                          className={
-                            user.isActive
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-gray-100 text-gray-500'
-                          }
-                        >
-                          {user.isActive ? (
-                            <ShieldCheck className="h-3 w-3 mr-1" />
-                          ) : (
-                            <ShieldX className="h-3 w-3 mr-1" />
+                          {u.email && (
+                            <div className="text-[10px] text-muted-foreground truncate">
+                              {u.email}
+                            </div>
                           )}
-                          {user.isActive ? 'Active' : 'Inactive'}
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    {/* Location */}
+                    <TableCell className="text-xs">
+                      {u.district?.name ? (
+                        <div>
+                          <div className="font-medium text-slate-800">{u.district.name}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {u.mandal?.name ? `${u.mandal.name}, ` : ''}{u.state?.name || ''}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-[11px] italic">Not set</span>
+                      )}
+                    </TableCell>
+
+                    {/* Preferred Language */}
+                    <TableCell>
+                      <Badge variant="outline" className="text-[11px] uppercase tracking-wide">
+                        {u.preferredLanguage || 'te'}
+                      </Badge>
+                    </TableCell>
+
+                    {/* Device & Platform */}
+                    <TableCell className="text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <Smartphone className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="capitalize font-medium text-slate-700">
+                          {u.devicePlatform || 'Mobile'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
+                        {u.appVersion || 'v1.0.0'}
+                      </div>
+                    </TableCell>
+
+                    {/* Notifications */}
+                    <TableCell>
+                      {u.notificationsEnabled ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          <Bell className="h-3 w-3" /> Enabled
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                          <BellOff className="h-3 w-3" /> Off
+                        </span>
+                      )}
+                    </TableCell>
+
+                    {/* Activity */}
+                    <TableCell className="text-xs">
+                      <div className="font-medium text-slate-800 flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        {u.lastActiveAt
+                          ? new Date(u.lastActiveAt).toLocaleDateString()
+                          : 'Never'}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        Joined: {new Date(u.createdAt).toLocaleDateString()}
+                      </div>
+                    </TableCell>
+
+                    {/* Status */}
+                    <TableCell>
+                      {u.isActive ? (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px]">
+                          Active
                         </Badge>
-                      </TableCell>
+                      ) : (
+                        <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-[11px]">
+                          Blocked
+                        </Badge>
+                      )}
+                    </TableCell>
 
-                      {/* Joined */}
-                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(user.createdAt)}
-                        </div>
-                      </TableCell>
+                    {/* Actions */}
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedUserId(u.id)
+                            setModalOpen(true)
+                          }}
+                          className="h-8 px-2 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          View
+                        </Button>
 
-                      {/* Actions */}
-                      <TableCell className="text-right">
-                        <div className="flex items-center gap-1 justify-end">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => openView(user)}
-                            title="View details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => openEdit(user)}
-                            title="Edit user"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => {
-                              setDeleteTarget(user)
-                              setDeleteDialogOpen(true)
-                            }}
-                            title="Delete user"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                        <Switch
+                          checked={u.isActive}
+                          onCheckedChange={() => handleQuickToggleStatus(u)}
+                          title={u.isActive ? 'Click to Block reader' : 'Click to Unblock reader'}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
-      {/* Pagination */}
-      {total > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            Showing {startIndex}–{endIndex} of {total.toLocaleString('en-IN')} users
-          </p>
+        {/* 5. Pagination Bar */}
+        <div className="p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3 text-xs bg-slate-50/50">
+          <div className="text-muted-foreground">
+            Page <strong className="text-slate-800">{page}</strong> of <strong className="text-slate-800">{totalPages}</strong> ({total} total readers)
+          </div>
+
           <div className="flex items-center gap-2">
+            <select
+              value={limit}
+              onChange={e => {
+                setLimit(parseInt(e.target.value, 10))
+                setPage(1)
+              }}
+              className="h-8 px-2 rounded border border-input bg-background text-xs"
+            >
+              <option value="10">10 / page</option>
+              <option value="20">20 / page</option>
+              <option value="50">50 / page</option>
+              <option value="100">100 / page</option>
+            </select>
+
             <Button
               variant="outline"
               size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1 || loading}
+              className="h-8 px-2 text-xs"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              Previous
+              Prev
             </Button>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum: number
-                if (totalPages <= 5) {
-                  pageNum = i + 1
-                } else if (page <= 3) {
-                  pageNum = i + 1
-                } else if (page >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i
-                } else {
-                  pageNum = page - 2 + i
-                }
-                return (
-                  <Button
-                    key={pageNum}
-                    variant={page === pageNum ? 'default' : 'outline'}
-                    size="sm"
-                    className={
-                      page === pageNum
-                        ? 'bg-red-600 hover:bg-red-700 h-8 w-8 p-0'
-                        : 'h-8 w-8 p-0'
-                    }
-                    onClick={() => setPage(pageNum)}
-                  >
-                    {pageNum}
-                  </Button>
-                )
-              })}
-            </div>
+
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || loading}
+              className="h-8 px-2 text-xs"
             >
               Next
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
         </div>
-      )}
+      </Card>
 
-      {/* View User Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>User Details</DialogTitle>
-            <DialogDescription>Detailed information about this app user.</DialogDescription>
-          </DialogHeader>
-          {viewUser && (
-            <div className="space-y-4">
-              {/* User Header */}
-              <div className="flex items-center gap-4 pb-4 border-b">
-                <Avatar className="h-14 w-14">
-                  <AvatarFallback className="bg-red-100 text-red-700 text-lg">
-                    {getInitials(viewUser.name, viewUser.phone)}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="font-semibold text-lg">
-                    {viewUser.name || 'Unnamed User'}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">{viewUser.email || 'No email'}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge
-                      variant="outline"
-                      className={
-                        viewUser.preferredLanguage === 'te'
-                          ? 'border-orange-200 bg-orange-50 text-orange-700'
-                          : 'border-blue-200 bg-blue-50 text-blue-700'
-                      }
-                    >
-                      {viewUser.preferredLanguage === 'te' ? 'Telugu' : 'English'}
-                    </Badge>
-                    <Badge
-                      className={
-                        viewUser.isActive
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-500'
-                      }
-                    >
-                      {viewUser.isActive ? 'Active' : 'Inactive'}
-                    </Badge>
-                    {viewUser.isPremium && (
-                      <Badge className="bg-amber-100 text-amber-700">
-                        <Star className="h-3 w-3 mr-1 fill-amber-500" />
-                        Premium
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Details Grid */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Phone className="h-3 w-3" /> Phone
-                  </p>
-                  <p className="text-sm font-mono">{viewUser.phone}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                    District
-                  </h4>
-                  <p className="text-sm">{viewUser.district?.name || '—'}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                    Mandal
-                  </h4>
-                  <p className="text-sm">{viewUser.mandal?.name || '—'}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> State
-                  </p>
-                  <p className="text-sm">{viewUser.state?.name || '—'}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Calendar className="h-3 w-3" /> Joined
-                  </p>
-                  <p className="text-sm">{formatDate(viewUser.createdAt)}</p>
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setViewDialogOpen(false)}
-            >
-              Close
-            </Button>
-            <Button
-              className="bg-red-600 hover:bg-red-700"
-              onClick={() => {
-                setViewDialogOpen(false)
-                if (viewUser) openEdit(viewUser)
-              }}
-            >
-              <Pencil className="h-4 w-4 mr-1" /> Edit User
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit User Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>
-              Update user information. Most fields are read-only.
-            </DialogDescription>
-          </DialogHeader>
-          {editUser && (
-            <div className="space-y-4">
-              {/* Read-only Fields */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">Phone</Label>
-                  <Input value={editUser.phone} disabled className="bg-muted" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">Email</Label>
-                  <Input
-                    value={editUser.email || '—'}
-                    disabled
-                    className="bg-muted"
-                  />
-                </div>
-              </div>
-
-              {/* Editable: Name */}
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input
-                  value={editForm.name}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, name: e.target.value }))
-                  }
-                  placeholder="Enter user name"
-                />
-              </div>
-
-              {/* Editable: State */}
-              <div className="space-y-2">
-                <Label>State</Label>
-                <select
-                  className="w-full border rounded-md p-2 text-sm bg-background"
-                  value={editForm.stateId}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, stateId: e.target.value, districtId: '', mandalId: '' }))
-                  }
-                >
-                  <option value="">Select state</option>
-                  {states.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Editable: District */}
-              <div className="space-y-2">
-                <Label>District</Label>
-                <select
-                  className="w-full border rounded-md p-2 text-sm bg-background"
-                  value={editForm.districtId}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, districtId: e.target.value, mandalId: '' }))
-                  }
-                >
-                  <option value="">Select district</option>
-                  {(editForm.stateId ? districts.filter((d) => d.stateId === editForm.stateId) : districts).map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Editable: Mandal */}
-              <div className="space-y-2">
-                <Label>Mandal</Label>
-                <select
-                  className="w-full border rounded-md p-2 text-sm bg-background"
-                  value={editForm.mandalId}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, mandalId: e.target.value }))
-                  }
-                >
-                  <option value="">Select mandal</option>
-                  {mandals
-                    .filter((m) => m.districtId === editForm.districtId)
-                    .map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {/* Read-only Language */}
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Preferred Language</Label>
-                <Input
-                  value={editUser.preferredLanguage === 'te' ? 'Telugu' : 'English'}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-
-              {/* Editable Toggles */}
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium">Premium</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Grant premium access
-                    </p>
-                  </div>
-                  <Switch
-                    checked={editForm.isPremium}
-                    onCheckedChange={(v) =>
-                      setEditForm((p) => ({ ...p, isPremium: v }))
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium">Active</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Enable user account
-                    </p>
-                  </div>
-                  <Switch
-                    checked={editForm.isActive}
-                    onCheckedChange={(v) =>
-                      setEditForm((p) => ({ ...p, isActive: v }))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-red-600 hover:bg-red-700"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete{' '}
-              <span className="font-semibold">
-                {deleteTarget?.name || deleteTarget?.phone}
-              </span>
-              ? This action will soft-delete the user account. They will no longer be
-              able to access the app.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
-              onClick={handleDelete}
-            >
-              Delete User
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* User Detail & Moderation Modal */}
+      <UserDetailModal
+        userId={selectedUserId}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        onUserUpdated={() => {
+          fetchUsers()
+          fetchStats()
+        }}
+      />
     </div>
   )
 }

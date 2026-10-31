@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
@@ -367,150 +368,36 @@ export default function SettingsPage() {
       </Card>
 
       {/* 3. Ad Management & Custom Sponsor Ads */}
+      {/* 3. Ads & Monetization Central Config */}
       <Card className="border shadow-sm">
         <CardHeader className="pb-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Megaphone className="h-5 w-5 text-red-600" />
-            Ad Management (Google AdMob & Custom Sponsor Ads)
+          <CardTitle className="text-base flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Megaphone className="h-5 w-5 text-red-600" />
+              Unified Ads & Monetization Hub
+            </span>
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+              Single Source of Truth
+            </Badge>
           </CardTitle>
-          <CardDescription>Configure Google AdMob unit IDs and direct sponsor banners for the mobile news feed.</CardDescription>
+          <CardDescription>
+            Google AdMob unit IDs, display formats, feed frequencies, priority rotation, and custom sponsor ads are now centrally managed in the dedicated Ads Management engine.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6 pt-2">
-          {/* Global AdMob Controls */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3.5 bg-muted/40 rounded-lg border">
-              <div>
-                <Label className="font-medium text-sm">Enable AdMob Feed Ads</Label>
-                <p className="text-xs text-muted-foreground">Display Google AdMob native cards within the news shorts feed</p>
-              </div>
-              <Switch
-                checked={settings.admob_feed_enabled !== 'false'}
-                onCheckedChange={v => updateSetting('admob_feed_enabled', String(v))}
-              />
+        <CardContent className="pt-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-muted/40 rounded-xl border gap-4">
+            <div className="space-y-1">
+              <h4 className="font-semibold text-sm">Manage Google AdMob & Sponsor Campaigns</h4>
+              <p className="text-xs text-muted-foreground max-w-xl">
+                Configure your strategy (Direct First vs AdMob First), set feed frequencies, upload video ads with custom skip timers, and adjust campaign weights.
+              </p>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Feed Ad Frequency</Label>
-                <Input
-                  type="number"
-                  min="2"
-                  max="20"
-                  value={settings.admob_feed_frequency || '4'}
-                  onChange={e => updateSetting('admob_feed_frequency', e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">Number of news shorts between ad cards (e.g. 4)</p>
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Android AdMob Unit IDs */}
-          <div>
-            <h4 className="text-sm font-semibold mb-3">AdMob IDs (Android)</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Native Ad ID</Label>
-                <Input
-                  value={settings.admob_native_id_android || ''}
-                  onChange={e => updateSetting('admob_native_id_android', e.target.value)}
-                  placeholder="ca-app-pub-3940256099942544/2247696110"
-                  className="font-mono text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Banner Ad ID</Label>
-                <Input
-                  value={settings.admob_banner_id_android || ''}
-                  onChange={e => updateSetting('admob_banner_id_android', e.target.value)}
-                  placeholder="ca-app-pub-3940256099942544/6300978111"
-                  className="font-mono text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Interstitial Ad ID</Label>
-                <Input
-                  value={settings.admob_interstitial_id_android || ''}
-                  onChange={e => updateSetting('admob_interstitial_id_android', e.target.value)}
-                  placeholder="ca-app-pub-3940256099942544/1033173712"
-                  className="font-mono text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">App Open Ad ID</Label>
-                <Input
-                  value={settings.admob_app_open_id_android || ''}
-                  onChange={e => updateSetting('admob_app_open_id_android', e.target.value)}
-                  placeholder="ca-app-pub-3940256099942544/9257399415"
-                  className="font-mono text-xs"
-                />
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* iOS AdMob Unit IDs */}
-          <div>
-            <h4 className="text-sm font-semibold mb-3">AdMob IDs (iOS)</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Native Ad ID</Label>
-                <Input
-                  value={settings.admob_native_id_ios || ''}
-                  onChange={e => updateSetting('admob_native_id_ios', e.target.value)}
-                  placeholder="ca-app-pub-..."
-                  className="font-mono text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Banner Ad ID</Label>
-                <Input
-                  value={settings.admob_banner_id_ios || ''}
-                  onChange={e => updateSetting('admob_banner_id_ios', e.target.value)}
-                  placeholder="ca-app-pub-..."
-                  className="font-mono text-xs"
-                />
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Custom Sponsor Banner */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold">Custom Sponsor Direct Ads</h4>
-            <div className="flex items-center justify-between p-3.5 bg-muted/40 rounded-lg border">
-              <div>
-                <Label className="font-medium text-sm">Enable Custom Sponsor Banner</Label>
-                <p className="text-xs text-muted-foreground">Overrides bottom AdMob banner with direct advertiser image banner</p>
-              </div>
-              <Switch
-                checked={settings.custom_banner_enabled === 'true'}
-                onCheckedChange={v => updateSetting('custom_banner_enabled', String(v))}
-              />
-            </div>
-            {settings.custom_banner_enabled === 'true' && (
-              <div className="grid grid-cols-1 gap-3 pt-1">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Banner Image URL</Label>
-                  <Input
-                    value={settings.custom_banner_image_url || ''}
-                    onChange={e => updateSetting('custom_banner_image_url', e.target.value)}
-                    placeholder="https://.../sponsor-banner.jpg"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Click Target Link URL</Label>
-                  <Input
-                    value={settings.custom_banner_link_url || ''}
-                    onChange={e => updateSetting('custom_banner_link_url', e.target.value)}
-                    placeholder="https://..."
-                  />
-                </div>
-              </div>
-            )}
+            <a href="/admin/ads" className="shrink-0">
+              <Button className="bg-red-600 hover:bg-red-700 text-white">
+                <Megaphone className="h-4 w-4 mr-2" />
+                Open Ads Management
+              </Button>
+            </a>
           </div>
         </CardContent>
       </Card>

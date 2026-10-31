@@ -20,10 +20,13 @@ import MediaPage from '@/components/admin/media-page'
 import AuditLogsPage from '@/components/admin/audit-logs-page'
 import WithdrawalsPage from '@/components/admin/withdrawals-page'
 import ReporterPerformancePage from '@/components/admin/reporter-performance-page'
+import RewardsRulesPage from '@/components/admin/rewards-rules-page'
+import ReportsPage from '@/components/admin/reports-page'
 
 const moduleComponents: Record<ViewType, React.ComponentType> = {
   dashboard: DashboardPage,
   news: NewsPage,
+  reports: ReportsPage,
   videos: VideosPage,
   locations: LocationsPage,
   categories: CategoriesPage,
@@ -31,6 +34,7 @@ const moduleComponents: Record<ViewType, React.ComponentType> = {
   ads: AdsPage,
   reporters: ReportersPage,
   'reporter-performance': ReporterPerformancePage,
+  'reward-rules': RewardsRulesPage,
   users: UsersPage,
   admins: AdminsPage,
   notifications: NotificationsPage,

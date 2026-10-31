@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const categoryId = searchParams.get('categoryId')
     const districtId = searchParams.get('districtId')
     const priority = searchParams.get('priority')
+    const reporterId = searchParams.get('reporterId')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const search = searchParams.get('search')
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
     if (categoryId && categoryId !== 'all') where.categoryId = categoryId
     if (districtId && districtId !== 'all') where.districtId = districtId
     if (priority && priority !== 'all') where.priority = priority
+    if (reporterId && reporterId !== 'all') where.reporterId = reporterId
     if (search) {
       where.OR = [
         { title: { contains: search } },
@@ -44,13 +46,19 @@ export async function GET(request: NextRequest) {
           status: true,
           priority: true,
           isFeatured: true,
+          viewsCount: true,
+          sharesCount: true,
           createdAt: true,
           publishedAt: true,
+          approvedAt: true,
+          approvedBy: true,
           categoryId: true,
           category: { select: { name: true, color: true } },
           state: { select: { name: true } },
           district: { select: { name: true } },
-          reporter: { select: { name: true } },
+          reporter: { select: { id: true, name: true, avatar: true, phone: true } },
+          approver: { select: { id: true, name: true, email: true } },
+          admin: { select: { id: true, name: true } },
           tags: { select: { tag: { select: { name: true, slug: true } } } },
         },
         orderBy: { createdAt: 'desc' },

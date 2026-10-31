@@ -5,6 +5,7 @@ import { verifyFirebaseToken } from '@/lib/firebase-admin'
 import { safeJsonParse } from '@/lib/json-utils'
 import { rankAndMixArticles } from '@/lib/recommendation-engine'
 import { getCache, setCache, getFeedCacheHeaders } from '@/lib/cache'
+import { injectAdsIntoFeedCards, getActiveCustomAds } from '@/lib/ad-engine'
 
 const feedQuerySchema = z.object({
   village_id: z.string().cuid().optional(),
@@ -182,30 +183,12 @@ export async function GET(request: NextRequest) {
     // Paginate from the ranked list
     const paginatedNews = rankedNews.slice(offset, offset + limit);
 
-    // Get feed_inline ads
-    const now = new Date();
-    const inlineAds = await db.customAd.findMany({
-      where: {
-        placement: 'feed_inline',
-        isActive: true,
-        deletedAt: null,
-        OR: [
-          { startDate: null, endDate: null },
-          { startDate: { lte: now }, endDate: { gte: now } },
-          { startDate: { lte: now }, endDate: null }
-        ]
-      },
-      take: 5,
-    });
-
-    const adFrequency = inlineAds.length > 0 ? (inlineAds[0].frequency || 4) : 4;
-
-    const feed: any[] = [];
-    paginatedNews.forEach((item, index) => {
+    // Format news items
+    const formattedNews = paginatedNews.map((item) => {
       const parsedImages = safeJsonParse<string[]>(item.imagesUrls, []);
       const thumbnail = item.thumbnailUrl || (parsedImages.length > 0 ? parsedImages[0] : '');
       const reporterObj = item.reporter || (item as any).admin || { name: 'Spot News Reporter', avatar: null };
-      const itemWithImages = {
+      return {
         ...item,
         reporter: reporterObj,
         reporter_name: reporterObj.name || 'Spot News Reporter',
@@ -213,55 +196,34 @@ export async function GET(request: NextRequest) {
         thumbnailUrl: thumbnail,
         imagesUrls: parsedImages,
       };
+    });
 
-      feed.push({
-        type: 'news',
-        news: itemWithImages,
-      });
-
-      if ((index + 1) % adFrequency === 0) {
-        if (inlineAds.length > 0 && index % 2 === 0) {
-          const ad = inlineAds[Math.floor(index / adFrequency) % inlineAds.length];
-          feed.push({
-            type: 'ad',
-            ad: {
-              ...ad,
-              imagesUrls: safeJsonParse<string[]>(ad.imagesUrls || '[]', []),
-              targetStateIds: safeJsonParse<string[]>(ad.targetStateIds || '[]', []),
-              targetCategoryIds: safeJsonParse<string[]>(ad.targetCategoryIds || '[]', []),
-            },
-          });
-        } else {
-          feed.push({
-            type: 'admob_native',
-          });
-        }
-      }
+    // Unified Ad Injection with priority rotation and non-repeating guarantees
+    const feed = await injectAdsIntoFeedCards(formattedNews, {
+      stateId: finalStateId,
+      districtId: finalDistrictId,
+      mandalId: finalMandalId,
+      categoryId: category,
     });
 
     // Inject Home Banner carousel on the first page
     if (page === 1) {
-      const carouselAds = await db.customAd.findMany({
-        where: {
-          placement: 'home_banner',
-          isActive: true,
-          deletedAt: null,
-          OR: [
-            { startDate: null, endDate: null },
-            { startDate: { lte: now }, endDate: { gte: now } },
-            { startDate: { lte: now }, endDate: null }
-          ]
-        },
-        take: 6,
+      const carouselAds = await getActiveCustomAds('home_banner', {
+        stateId: finalStateId,
+        districtId: finalDistrictId,
+        mandalId: finalMandalId,
+        categoryId: category,
       });
 
       if (carouselAds.length > 0) {
         feed.unshift({
           type: 'ad_slider',
-          ads: carouselAds.map(ad => ({
+          ads: carouselAds.slice(0, 6).map(ad => ({
             ...ad,
             imagesUrls: safeJsonParse<string[]>(ad.imagesUrls || '[]', []),
             targetStateIds: safeJsonParse<string[]>(ad.targetStateIds || '[]', []),
+            targetDistrictIds: safeJsonParse<string[]>(ad.targetDistrictIds || '[]', []),
+            targetMandalIds: safeJsonParse<string[]>(ad.targetMandalIds || '[]', []),
             targetCategoryIds: safeJsonParse<string[]>(ad.targetCategoryIds || '[]', []),
           }))
         } as any);
