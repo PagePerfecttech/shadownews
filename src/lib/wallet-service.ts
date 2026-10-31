@@ -46,7 +46,6 @@ export async function createWalletTransaction(params: CreateWalletTransactionPar
         balanceAfter: newEarningsBalance,
         coinsBalanceAfter: newCoinsBalance,
         status: 'completed',
-        adminId: adminId || null,
       },
     })
 
