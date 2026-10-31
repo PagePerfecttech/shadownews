@@ -11,8 +11,8 @@ describe('Module 11 Features Integration: Report Fake News, App Config & Feedbac
 
   beforeAll(async () => {
     // Find or create test reporter
-    const state = await db.state.findFirst() || await db.state.create({ data: { name: 'Telangana', code: 'TG' } })
-    const district = await db.district.findFirst({ where: { stateId: state.id } }) || await db.district.create({ data: { name: 'Hyderabad', code: 'HYD', stateId: state.id } })
+    const state = await db.state.findFirst() || await db.state.create({ data: { name: 'Telangana' } })
+    const district = await db.district.findFirst({ where: { stateId: state.id } }) || await db.district.create({ data: { name: 'Hyderabad', stateId: state.id } })
     testStateId = state.id
     testDistrictId = district.id
 
