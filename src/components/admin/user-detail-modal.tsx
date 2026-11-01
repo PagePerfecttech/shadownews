@@ -255,7 +255,7 @@ export function UserDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="!w-[96vw] !max-w-[96vw] sm:!max-w-[96vw] md:!max-w-[96vw] lg:!max-w-[96vw] xl:!max-w-[96vw] !h-[94vh] !max-h-[94vh] flex flex-col p-0 overflow-hidden rounded-xl shadow-2xl">
         <DialogHeader className="p-6 pb-2 border-b bg-gradient-to-r from-slate-50 to-indigo-50/40">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">

@@ -31,8 +31,10 @@ import {
   Eye,
   RefreshCw,
   Edit,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react'
-import { authFetchJSON, authFetchJson } from '@/lib/utils'
+import { authFetchJSON, authFetchJson, cn } from '@/lib/utils'
 
 interface ReporterDetailData {
   id: string
@@ -166,6 +168,7 @@ export function ReporterDetailModal({
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
   const [newsFilter, setNewsFilter] = useState('all')
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Modals inside detail
   const [levelDialogOpen, setLevelDialogOpen] = useState(false)
@@ -370,9 +373,16 @@ export function ReporterDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent
+        className={cn(
+          "flex flex-col p-0 overflow-hidden transition-all duration-200",
+          isFullscreen
+            ? "!fixed !inset-0 !top-0 !left-0 !translate-x-0 !translate-y-0 !w-screen !h-screen !max-w-none sm:!max-w-none md:!max-w-none lg:!max-w-none xl:!max-w-none 2xl:!max-w-none !max-h-none !rounded-none z-50 border-0 shadow-none"
+            : "!w-[98vw] !max-w-[98vw] sm:!max-w-[98vw] md:!max-w-[98vw] lg:!max-w-[98vw] xl:!max-w-[98vw] 2xl:!max-w-[98vw] !h-[96vh] !max-h-[96vh] rounded-xl border-slate-800 shadow-2xl"
+        )}
+      >
         {/* Header */}
-        <div className="bg-slate-900 text-white p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800">
+        <div className="bg-slate-900 text-white p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 flex-shrink-0">
           <div className="flex items-center gap-4">
             {data?.avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -427,6 +437,23 @@ export function ReporterDetailModal({
               onClick={() => setPasswordDialogOpen(true)}
             >
               <KeyRound className="h-3.5 w-3.5 mr-1 text-amber-400" /> Reset Password
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-slate-700 text-slate-200 hover:bg-slate-800 text-xs"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              title={isFullscreen ? 'Exit Full Screen' : 'Toggle Full Screen'}
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize2 className="h-3.5 w-3.5 mr-1 text-blue-400" /> Exit Fullscreen
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-3.5 w-3.5 mr-1 text-blue-400" /> Fullscreen
+                </>
+              )}
             </Button>
           </div>
         </div>
