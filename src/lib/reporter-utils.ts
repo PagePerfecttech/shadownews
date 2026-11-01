@@ -19,6 +19,14 @@ export function getPhoneVariants(phone?: string | null): string[] {
     variants.add(digitsOnly)
     variants.add(`+91${digitsOnly}`)
     variants.add(`91${digitsOnly}`)
+    variants.add(`+91 ${digitsOnly}`)
+    variants.add(`+91-${digitsOnly}`)
+  } else if (digitsOnly.length === 11 && digitsOnly.startsWith('0')) {
+    const tenDigits = digitsOnly.substring(1)
+    variants.add(tenDigits)
+    variants.add(`+91${tenDigits}`)
+    variants.add(`91${tenDigits}`)
+    variants.add(digitsOnly)
   } else if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
     const tenDigits = digitsOnly.substring(2)
     variants.add(tenDigits)
@@ -30,30 +38,87 @@ export function getPhoneVariants(phone?: string | null): string[] {
 }
 
 /**
- * Searches for an active, non-deleted reporter matching phone variants or email.
+ * Searches for an active, non-deleted reporter matching phone variants, user profile, or email.
  */
 export async function findReporterFromToken(
   decodedToken: DecodedAuthToken,
   options?: { include?: any }
 ) {
-  const phoneVariants = getPhoneVariants(decodedToken.phone_number)
-  const email = decodedToken.email?.trim()
+  const phoneSet = new Set<string>()
+  const emailSet = new Set<string>()
 
-  const conditions: any[] = []
-
-  if (phoneVariants.length > 0) {
-    conditions.push({ phone: { in: phoneVariants } })
+  if (decodedToken.phone_number) {
+    getPhoneVariants(decodedToken.phone_number).forEach(p => phoneSet.add(p))
   }
 
-  if (email) {
-    conditions.push({ email: { equals: email, mode: 'insensitive' } })
+  if (decodedToken.email?.trim()) {
+    emailSet.add(decodedToken.email.trim().toLowerCase())
   }
 
-  if (conditions.length === 0) return null
+  // Cross-reference user table to handle Google / custom token logins where phone_number isn't in token
+  const userConditions: any[] = []
+  if (decodedToken.uid) {
+    userConditions.push({ id: decodedToken.uid })
+  }
+  if (phoneSet.size > 0) {
+    userConditions.push({ phone: { in: Array.from(phoneSet) } })
+  }
+  if (emailSet.size > 0) {
+    userConditions.push({ email: { in: Array.from(emailSet), mode: 'insensitive' } })
+  }
+
+  let dbUser = null
+  if (userConditions.length > 0) {
+    dbUser = await db.user.findFirst({
+      where: {
+        OR: userConditions,
+        deletedAt: null,
+      },
+    })
+  }
+
+  if (dbUser) {
+    if (dbUser.phone) {
+      getPhoneVariants(dbUser.phone).forEach(p => phoneSet.add(p))
+    }
+    if (dbUser.email?.trim()) {
+      emailSet.add(dbUser.email.trim().toLowerCase())
+    }
+  }
+
+  // Build reporter search conditions
+  const reporterConditions: any[] = []
+  const phoneArray = Array.from(phoneSet)
+
+  if (phoneArray.length > 0) {
+    reporterConditions.push({ phone: { in: phoneArray } })
+    // Also add contains check for the core 10 digits
+    for (const p of phoneArray) {
+      const digits = p.replace(/\D/g, '')
+      const ten = digits.length === 10 ? digits : (digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : null)
+      if (ten) {
+        reporterConditions.push({ phone: { contains: ten } })
+      }
+    }
+  }
+
+  const emailArray = Array.from(emailSet)
+  if (emailArray.length > 0) {
+    reporterConditions.push({ email: { in: emailArray, mode: 'insensitive' } })
+  }
+
+  if (decodedToken.uid) {
+    reporterConditions.push({ id: decodedToken.uid })
+  }
+  if (dbUser) {
+    reporterConditions.push({ id: dbUser.id })
+  }
+
+  if (reporterConditions.length === 0) return null
 
   return db.reporter.findFirst({
     where: {
-      OR: conditions,
+      OR: reporterConditions,
       deletedAt: null,
     },
     include: options?.include,
