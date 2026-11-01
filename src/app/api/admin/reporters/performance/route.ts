@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
       case 'activate':
         updatedReporter = await db.reporter.update({
           where: { id: reporterId },
-          data: { status: 'approved' },
+          data: { status: 'active' },
         })
         break
 

@@ -63,7 +63,7 @@ export async function checkSubmissionLimit(reporterId: string, categoryId?: stri
     select: { id: true, role: true, canPublishDirectly: true, status: true }
   })
 
-  if (!reporter || reporter.status !== 'approved') {
+  if (!reporter || (reporter.status !== 'active' && reporter.status !== 'approved')) {
     return {
       allowed: false,
       reason: 'Reporter account is not active or approved.',
@@ -597,7 +597,7 @@ export async function runPromotionEngineCron(): Promise<{
   flaggedCount: number
 }> {
   const reporters = await db.reporter.findMany({
-    where: { deletedAt: null, status: 'approved' }
+    where: { deletedAt: null, status: { in: ['active', 'approved'] } }
   })
 
   let evaluated = 0
