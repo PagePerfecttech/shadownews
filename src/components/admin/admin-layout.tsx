@@ -106,11 +106,11 @@ function SidebarNav({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Brand Header */}
       <div
         className={cn(
-          'flex items-center gap-3 px-4 h-16 border-b border-white/10 bg-slate-950',
+          'flex items-center gap-3 px-4 h-16 border-b border-white/10 bg-slate-950 flex-shrink-0',
           collapsed && 'justify-center px-2'
         )}
       >
@@ -128,8 +128,8 @@ function SidebarNav({
         )}
       </div>
 
-      {/* Navigation List */}
-      <ScrollArea className="flex-1 py-3">
+      {/* Navigation List - Native flex-1 with overflow-y-auto to avoid any Radix ScrollArea height-collapse issues */}
+      <div className="flex-1 overflow-y-auto min-h-0 py-3 select-none">
         <nav className="space-y-4 px-2">
           {Object.entries(sections).map(([sectionTitle, items]) => (
             <div key={sectionTitle} className="space-y-0.5">
@@ -146,7 +146,7 @@ function SidebarNav({
                     key={item.id}
                     onClick={() => onViewChange(item.id)}
                     className={cn(
-                      'w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-all',
+                      'w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-all text-left',
                       isActive
                         ? 'bg-red-600 text-white shadow-md font-semibold'
                         : 'text-gray-300 hover:bg-white/10 hover:text-white',
@@ -162,7 +162,7 @@ function SidebarNav({
             </div>
           ))}
         </nav>
-      </ScrollArea>
+      </div>
     </div>
   )
 }
@@ -178,11 +178,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 font-sans">
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar - fixed, flex-shrink-0, sticky h-screen */}
       <aside
         className={cn(
-          'hidden lg:flex flex-col bg-slate-900 text-white transition-all duration-300 border-r border-slate-800 shadow-lg select-none',
-          collapsed ? 'w-16' : 'w-64'
+          'hidden md:flex flex-col flex-shrink-0 bg-slate-900 text-white transition-all duration-300 border-r border-slate-800 shadow-lg select-none sticky top-0 h-screen z-40',
+          collapsed ? 'w-16 min-w-[4rem]' : 'w-64 min-w-[16rem]'
         )}
       >
         <SidebarNav
@@ -191,7 +191,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           collapsed={collapsed}
           userRole={currentUser?.role}
         />
-        <div className="p-2 border-t border-white/10">
+        <div className="p-2 border-t border-white/10 flex-shrink-0 bg-slate-900">
           <Button
             variant="ghost"
             size="sm"
@@ -206,7 +206,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Mobile Drawer */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="p-0 w-64 bg-slate-900 border-slate-800 text-white">
+        <SheetContent side="left" className="p-0 w-64 bg-slate-900 border-slate-800 text-white flex flex-col h-full">
           <div className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>
             <SheetDescription>Main navigation menu for the admin dashboard</SheetDescription>
@@ -231,7 +231,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
+              className="md:hidden"
               onClick={() => setSidebarOpen(true)}
             >
               <Menu className="h-5 w-5" />
