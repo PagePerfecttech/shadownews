@@ -49,33 +49,33 @@ const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'Overview' },
 
   // Content
-  { id: 'news', label: 'News Management', icon: Newspaper, section: 'Editorial & Content', roles: ['superadmin', 'admin', 'editor'] },
-  { id: 'reports', label: 'Citizen Reports', icon: ShieldAlert, section: 'Editorial & Content', roles: ['superadmin', 'admin', 'editor'] },
-  { id: 'videos', label: 'Shorts & Videos', icon: Video, section: 'Editorial & Content', roles: ['superadmin', 'admin', 'editor'] },
-  { id: 'categories', label: 'Categories', icon: FolderOpen, section: 'Editorial & Content', roles: ['superadmin', 'admin', 'editor'] },
-  { id: 'tags', label: 'Tags & Topics', icon: Tag, section: 'Editorial & Content', roles: ['superadmin', 'admin', 'editor'] },
+  { id: 'news', label: 'News Management', icon: Newspaper, section: 'Editorial & Content', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },
+  { id: 'reports', label: 'Citizen Reports', icon: ShieldAlert, section: 'Editorial & Content', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },
+  { id: 'videos', label: 'Shorts & Videos', icon: Video, section: 'Editorial & Content', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },
+  { id: 'categories', label: 'Categories', icon: FolderOpen, section: 'Editorial & Content', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },
+  { id: 'tags', label: 'Tags & Topics', icon: Tag, section: 'Editorial & Content', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },
 
   // Reporters
-  { id: 'reporters', label: 'Reporters Directory', icon: Users, section: 'Journalists & Staff', roles: ['superadmin', 'admin', 'editor', 'finance'] },
-  { id: 'reporter-performance', label: 'Performance Tiers', icon: Award, section: 'Journalists & Staff', roles: ['superadmin', 'admin', 'editor'] },
-  { id: 'reward-rules', label: 'Reward & Level Rules', icon: Coins, section: 'Journalists & Staff', roles: ['superadmin', 'admin', 'finance'] },
+  { id: 'reporters', label: 'Reporters Directory', icon: Users, section: 'Journalists & Staff', roles: ['super_admin', 'superadmin', 'admin', 'editor', 'finance'] },
+  { id: 'reporter-performance', label: 'Performance Tiers', icon: Award, section: 'Journalists & Staff', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },
+  { id: 'reward-rules', label: 'Reward & Level Rules', icon: Coins, section: 'Journalists & Staff', roles: ['super_admin', 'superadmin', 'admin', 'finance'] },
 
   // Finance
-  { id: 'withdrawals', label: 'Withdrawals Tab', icon: Banknote, section: 'Finance & Payouts', roles: ['superadmin', 'admin', 'finance'] },
+  { id: 'withdrawals', label: 'Withdrawals Tab', icon: Banknote, section: 'Finance & Payouts', roles: ['super_admin', 'superadmin', 'admin', 'finance'] },
 
   // Monetization
-  { id: 'ads', label: 'Ads & AdMob', icon: Megaphone, section: 'Monetization', roles: ['superadmin', 'admin', 'ad_manager'] },
+  { id: 'ads', label: 'Ads & AdMob', icon: Megaphone, section: 'Monetization', roles: ['super_admin', 'superadmin', 'admin', 'ad_manager'] },
 
   // Audience
-  { id: 'users', label: 'App Readers', icon: Contact, section: 'Audience & Growth', roles: ['superadmin', 'admin', 'editor'] },
-  { id: 'notifications', label: 'Push Broadcasts', icon: Bell, section: 'Audience & Growth', roles: ['superadmin', 'admin', 'editor'] },
+  { id: 'users', label: 'App Readers', icon: Contact, section: 'Audience & Growth', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },
+  { id: 'notifications', label: 'Push Broadcasts', icon: Bell, section: 'Audience & Growth', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },
 
   // System
-  { id: 'locations', label: 'Location Hierarchy', icon: MapPin, section: 'System & Controls', roles: ['superadmin', 'admin'] },
+  { id: 'locations', label: 'Location Hierarchy', icon: MapPin, section: 'System & Controls', roles: ['super_admin', 'superadmin', 'admin'] },
   { id: 'media', label: 'Media Library', icon: Image, section: 'System & Controls' },
-  { id: 'admins', label: 'Admin Staff', icon: UserCog, section: 'System & Controls', roles: ['superadmin', 'admin'] },
-  { id: 'audit-logs', label: 'Audit Trail', icon: FileText, section: 'System & Controls', roles: ['superadmin', 'admin'] },
-  { id: 'settings', label: 'Platform Settings', icon: Settings, section: 'System & Controls', roles: ['superadmin', 'admin'] },
+  { id: 'admins', label: 'Admin Staff', icon: UserCog, section: 'System & Controls', roles: ['super_admin', 'superadmin', 'admin'] },
+  { id: 'audit-logs', label: 'Audit Trail', icon: FileText, section: 'System & Controls', roles: ['super_admin', 'superadmin', 'admin'] },
+  { id: 'settings', label: 'Platform Settings', icon: Settings, section: 'System & Controls', roles: ['super_admin', 'superadmin', 'admin'] },
 ]
 
 function SidebarNav({
@@ -89,13 +89,20 @@ function SidebarNav({
   collapsed: boolean
   userRole?: string
 }) {
-  const role = userRole?.toLowerCase() || 'superadmin'
+  const normalizedRole = (userRole?.toLowerCase() || 'super_admin').replace(/[-_\s]/g, '')
+  const isSuperOrAdmin =
+    !userRole ||
+    normalizedRole === 'superadmin' ||
+    normalizedRole === 'admin' ||
+    normalizedRole === 'owner' ||
+    normalizedRole === 'manager'
 
   // Filter items visible to this role
   const visibleItems = navItems.filter(item => {
     if (!item.roles) return true
-    if (role === 'superadmin' || role === 'admin') return true
-    return item.roles.includes(role)
+    if (isSuperOrAdmin) return true
+    const normalizedItemRoles = item.roles.map(r => r.toLowerCase().replace(/[-_\s]/g, ''))
+    return normalizedItemRoles.includes(normalizedRole)
   })
 
   // Group by section
@@ -229,12 +236,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 lg:px-6 shadow-sm sticky top-0 z-30">
           <div className="flex items-center gap-3">
             <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
+              variant="outline"
+              size="sm"
+              className="md:hidden flex items-center gap-1.5 border-slate-300 dark:border-slate-700 font-medium text-xs px-2.5 py-1.5"
               onClick={() => setSidebarOpen(true)}
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-4 w-4" />
+              <span>Menu</span>
             </Button>
             <div>
               <h2 className="text-base font-bold capitalize text-slate-800 dark:text-white leading-tight">
