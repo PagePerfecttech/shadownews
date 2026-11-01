@@ -194,7 +194,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         <SidebarNav
           activeView={activeView}
-          onViewChange={setActiveView}
+          onViewChange={(v) => {
+            setActiveView(v)
+            if (typeof window !== 'undefined') {
+              window.history.pushState(null, '', `/admin/${v}`)
+            }
+          }}
           collapsed={collapsed}
           userRole={currentUser?.role}
         />
@@ -222,6 +227,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             activeView={activeView}
             onViewChange={(v) => {
               setActiveView(v)
+              if (typeof window !== 'undefined') {
+                window.history.pushState(null, '', `/admin/${v}`)
+              }
               setSidebarOpen(false)
             }}
             collapsed={false}
