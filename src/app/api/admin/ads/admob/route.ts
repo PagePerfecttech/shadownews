@@ -29,7 +29,7 @@ export async function PUT(request: NextRequest) {
       update: {
         isEnabled: data.isEnabled ?? true,
         testMode: data.testMode ?? false,
-        primaryStrategy: data.primaryStrategy || 'direct_first',
+        primaryStrategy: data.primaryStrategy || 'admob_first',
         feedAdFrequency: data.feedAdFrequency ? parseInt(data.feedAdFrequency) : 5,
 
         nativeEnabled: data.nativeEnabled ?? true,
@@ -56,7 +56,7 @@ export async function PUT(request: NextRequest) {
         id: 'default',
         isEnabled: data.isEnabled ?? true,
         testMode: data.testMode ?? false,
-        primaryStrategy: data.primaryStrategy || 'direct_first',
+        primaryStrategy: data.primaryStrategy || 'admob_first',
         feedAdFrequency: data.feedAdFrequency ? parseInt(data.feedAdFrequency) : 5,
 
         nativeEnabled: data.nativeEnabled ?? true,
