@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     // Verify user is an active reporter
     const reporter = await findReporterFromToken(decodedToken);
-    if (!reporter || reporter.status !== 'active' || reporter.deletedAt) {
+    if (!reporter || (reporter.status !== 'active' && reporter.status !== 'approved') || reporter.deletedAt) {
       return NextResponse.json({ error: 'Not an active reporter' }, { status: 403 })
     }
 
@@ -307,8 +307,8 @@ export async function POST(request: NextRequest) {
     }).catch((err) => console.error('AI news generation error:', err))
 
     return NextResponse.json({ message: 'News submitted successfully', news })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Reporter news submit error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: error?.message || 'Internal server error' }, { status: 500 })
   }
 }

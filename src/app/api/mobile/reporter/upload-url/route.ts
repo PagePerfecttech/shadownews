@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     const reporter = await findReporterFromToken(decodedToken)
-    if (!reporter || reporter.status !== 'active' || reporter.deletedAt) {
+    if (!reporter || (reporter.status !== 'active' && reporter.status !== 'approved') || reporter.deletedAt) {
       return NextResponse.json({ error: 'Not an active reporter' }, { status: 403 })
     }
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('Error generating presigned upload URL:', error)
-    return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 })
+    return NextResponse.json({ error: error?.message || 'Failed to generate upload URL' }, { status: 500 })
   }
 }
 

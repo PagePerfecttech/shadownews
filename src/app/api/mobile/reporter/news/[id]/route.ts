@@ -112,8 +112,8 @@ export async function PUT(
     })
 
     return NextResponse.json({ message: 'News updated successfully', news: updatedNews })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update reporter news error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: error?.message || 'Internal server error' }, { status: 500 })
   }
 }

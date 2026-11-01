@@ -19,6 +19,8 @@ export function getS3Client(): S3Client {
       secretAccessKey: secretAccessKey || 'dummy',
     },
     region: 'auto',
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   })
 }
 
