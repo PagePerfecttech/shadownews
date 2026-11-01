@@ -187,12 +187,17 @@ export async function GET(request: NextRequest) {
     const formattedNews = paginatedNews.map((item) => {
       const parsedImages = safeJsonParse<string[]>(item.imagesUrls, []);
       const thumbnail = item.thumbnailUrl || (parsedImages.length > 0 ? parsedImages[0] : '');
-      const reporterObj = item.reporter || (item as any).admin || { name: 'Spot News Reporter', avatar: null };
+      const reporterAvatar = item.reporter?.avatar || (item as any).admin?.avatar || '';
+      const reporterName = item.reporter?.name || (item as any).admin?.name || 'Spot News Reporter';
+      const reporterObj = {
+        name: reporterName,
+        avatar: reporterAvatar || null,
+      };
       return {
         ...item,
         reporter: reporterObj,
-        reporter_name: reporterObj.name || 'Spot News Reporter',
-        reporter_image: reporterObj.avatar || '',
+        reporter_name: reporterName,
+        reporter_image: reporterAvatar,
         thumbnailUrl: thumbnail,
         imagesUrls: parsedImages,
       };
