@@ -123,6 +123,7 @@ export async function GET(request: NextRequest) {
       shortDesc: true,
       thumbnailUrl: true,
       imagesUrls: true,
+      videoUrl: true,
       priority: true,
       publishedAt: true,
       viewsCount: true,
@@ -186,7 +187,13 @@ export async function GET(request: NextRequest) {
     // Format news items
     const formattedNews = paginatedNews.map((item) => {
       const parsedImages = safeJsonParse<string[]>(item.imagesUrls, []);
-      const thumbnail = item.thumbnailUrl || (parsedImages.length > 0 ? parsedImages[0] : '');
+      let thumbnail = item.thumbnailUrl || (parsedImages.length > 0 ? parsedImages[0] : '');
+      if (!thumbnail && item.videoUrl) {
+        const ytMatch = item.videoUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|watch\?.+&v=))([\w-]{11})/);
+        if (ytMatch && ytMatch[1]) {
+          thumbnail = `https://img.youtube.com/vi/${ytMatch[1]}/maxresdefault.jpg`;
+        }
+      }
       const reporterAvatar = item.reporter?.avatar || (item as any).admin?.avatar || '';
       const reporterName = item.reporter?.name || (item as any).admin?.name || 'Spot News Reporter';
       const reporterObj = {
@@ -200,6 +207,8 @@ export async function GET(request: NextRequest) {
         reporter_image: reporterAvatar,
         thumbnailUrl: thumbnail,
         imagesUrls: parsedImages,
+        videoUrl: item.videoUrl || null,
+        video_url: item.videoUrl || null,
       };
     });
 

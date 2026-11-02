@@ -256,6 +256,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (!thumbnailUrl && videoUrl) {
+      const ytMatch = videoUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|watch\?.+&v=))([\w-]{11})/)
+      if (ytMatch && ytMatch[1]) {
+        thumbnailUrl = `https://img.youtube.com/vi/${ytMatch[1]}/maxresdefault.jpg`
+        if (!allImageUrls.includes(thumbnailUrl)) allImageUrls.push(thumbnailUrl)
+      }
+    }
+
     if (!thumbnailUrl && !videoUrl) {
        return NextResponse.json({ error: 'Thumbnail or Video is required' }, { status: 400 })
     }
@@ -277,7 +285,7 @@ export async function POST(request: NextRequest) {
         districtId: districtId || reporter.districtId,
         mandalId: mandalId || reporter.mandalId || null,
         thumbnailUrl: thumbnailUrl || (allImageUrls[0] || ''),
-        imagesUrls: JSON.stringify(allImageUrls),
+        imagesUrls: JSON.stringify(allImageUrls.length > 0 ? allImageUrls : (thumbnailUrl ? [thumbnailUrl] : [])),
         videoUrl,
         sourceType: 'reporter',
         reporterId: reporter.id,

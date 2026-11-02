@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Search, CheckCircle, XCircle, Upload, X, ImageIcon, ArrowLeft, Save, Loader2, Sparkles } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, CheckCircle, XCircle, Upload, X, ImageIcon, ArrowLeft, Save, Loader2, Sparkles, Play, Video, Camera } from 'lucide-react'
 
 interface NewsItem {
   id: string
@@ -331,7 +331,18 @@ export default function NewsPage() {
                     <TableRow key={item.id}>
                       <TableCell>
                         {item.thumbnailUrl || (item.imagesUrls?.length > 0) ? (
-                          <img src={item.thumbnailUrl || item.imagesUrls[0]} alt="" className="w-10 h-10 rounded object-cover bg-muted" />
+                          <div className="relative w-10 h-10 rounded overflow-hidden bg-muted group">
+                            <img src={item.thumbnailUrl || item.imagesUrls[0]} alt="" className="w-full h-full object-cover" />
+                            {item.videoUrl && (
+                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                <Play className="w-3.5 h-3.5 text-white fill-white" />
+                              </div>
+                            )}
+                          </div>
+                        ) : item.videoUrl ? (
+                          <div className="w-10 h-10 rounded bg-purple-950/60 border border-purple-500/30 flex items-center justify-center text-xs text-purple-400 font-medium" title="Video Attached">
+                            <Video className="w-4 h-4 text-purple-400" />
+                          </div>
                         ) : (
                           <div className="w-10 h-10 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">N</div>
                         )}
@@ -746,6 +757,47 @@ function NewsFormPage({
     if (e.target) e.target.value = ''
   }
 
+  const captureVideoThumbnail = (source: File | string): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video')
+      video.preload = 'metadata'
+      video.crossOrigin = 'anonymous'
+      video.src = typeof source === 'string' ? source : URL.createObjectURL(source)
+      video.muted = true
+      video.playsInline = true
+      video.currentTime = 0.5
+      video.onloadeddata = () => {
+        try {
+          video.currentTime = 0.5
+        } catch {}
+      }
+      video.onseeked = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = video.videoWidth || 640
+          canvas.height = video.videoHeight || 360
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
+          canvas.toBlob((blob) => {
+            if (typeof source !== 'string') URL.revokeObjectURL(video.src)
+            resolve(blob)
+          }, 'image/jpeg', 0.85)
+        } catch {
+          if (typeof source !== 'string') URL.revokeObjectURL(video.src)
+          resolve(null)
+        }
+      }
+      video.onerror = () => {
+        if (typeof source !== 'string') URL.revokeObjectURL(video.src)
+        resolve(null)
+      }
+      setTimeout(() => {
+        if (typeof source !== 'string') URL.revokeObjectURL(video.src)
+        resolve(null)
+      }, 5000)
+    })
+  }
+
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -774,6 +826,29 @@ function NewsFormPage({
         const data = await res.json()
         updateField('videoUrl', data.url)
         toast.success('Video uploaded successfully!')
+
+        if (!form.thumbnailUrl) {
+          try {
+            const thumbBlob = await captureVideoThumbnail(file)
+            if (thumbBlob) {
+              const thumbForm = new FormData()
+              thumbForm.append('file', thumbBlob, 'video_thumb.jpg')
+              const thumbRes = await authFetch('/api/admin/media/upload', {
+                method: 'POST',
+                body: thumbForm,
+              })
+              if (thumbRes.ok) {
+                const thumbData = await thumbRes.json()
+                if (thumbData.url) {
+                  updateField('thumbnailUrl', thumbData.url)
+                  toast.success('Video thumbnail automatically generated!')
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Failed to auto-generate video thumbnail:', e)
+          }
+        }
       } else {
         const errData = await res.json().catch(() => ({ error: 'Upload failed' }))
         toast.error(errData.error || 'Video upload failed')
@@ -1290,18 +1365,88 @@ function NewsFormPage({
                 />
 
                 {(form.videoUrl as string) && (
-                  <div className="flex items-center justify-between p-2.5 bg-background rounded-md border text-xs">
-                    <div className="flex items-center gap-2 truncate max-w-[80%]">
-                      <span className="font-semibold text-emerald-600">Attached:</span>
-                      <span className="truncate text-muted-foreground font-mono">{form.videoUrl as string}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2.5 bg-background rounded-md border text-xs">
+                      <div className="flex items-center gap-2 truncate max-w-[80%]">
+                        <span className="font-semibold text-emerald-600">Attached:</span>
+                        <span className="truncate text-muted-foreground font-mono">{form.videoUrl as string}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => updateField('videoUrl', '')}
+                        className="text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded"
+                      >
+                        Remove
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => updateField('videoUrl', '')}
-                      className="text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded"
-                    >
-                      Remove
-                    </button>
+
+                    {/* Interactive Video Preview Player */}
+                    {!(form.videoUrl as string).includes('youtube.com') && !(form.videoUrl as string).includes('youtu.be') ? (
+                      <div className="rounded-md overflow-hidden border bg-black space-y-2 p-2">
+                        <video
+                          id="admin-preview-video"
+                          src={form.videoUrl as string}
+                          controls
+                          crossOrigin="anonymous"
+                          playsInline
+                          className="w-full max-h-48 rounded bg-black object-contain"
+                        />
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[11px] text-muted-foreground">Video Preview</span>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={async () => {
+                              try {
+                                const vEl = document.getElementById('admin-preview-video') as HTMLVideoElement | null
+                                if (!vEl) return
+                                const canvas = document.createElement('canvas')
+                                canvas.width = vEl.videoWidth || 640
+                                canvas.height = vEl.videoHeight || 360
+                                const ctx = canvas.getContext('2d')
+                                ctx?.drawImage(vEl, 0, 0, canvas.width, canvas.height)
+                                canvas.toBlob(async (blob) => {
+                                  if (!blob) return
+                                  const fd = new FormData()
+                                  fd.append('file', blob, 'video_frame_thumb.jpg')
+                                  const res = await authFetch('/api/admin/media/upload', {
+                                    method: 'POST',
+                                    body: fd,
+                                  })
+                                  if (res.ok) {
+                                    const d = await res.json()
+                                    if (d.url) {
+                                      updateField('thumbnailUrl', d.url)
+                                      toast.success('Current video frame captured as thumbnail!')
+                                    }
+                                  }
+                                }, 'image/jpeg', 0.88)
+                              } catch (err) {
+                                console.error('Snapshot error:', err)
+                                toast.error('Could not capture frame')
+                              }
+                            }}
+                          >
+                            <Camera className="w-3.5 h-3.5 mr-1" />
+                            Capture Current Frame as Thumbnail
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-muted/30 rounded border text-xs flex items-center justify-between">
+                        <span className="text-muted-foreground">YouTube Video Attached</span>
+                        <a
+                          href={form.videoUrl as string}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary hover:underline font-medium inline-flex items-center gap-1"
+                        >
+                          <Play className="w-3 h-3" /> Watch on YouTube
+                        </a>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

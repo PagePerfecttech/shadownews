@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
           shortDesc: true,
           thumbnailUrl: true,
           imagesUrls: true,
+          videoUrl: true,
           status: true,
           priority: true,
           isFeatured: true,
