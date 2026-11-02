@@ -448,8 +448,9 @@ export default function AdsPage() {
                     value={admobConfig.primaryStrategy}
                     onChange={e => setAdmobConfig(p => ({ ...p, primaryStrategy: e.target.value }))}
                   >
-                    <option value="direct_first">Direct First (Serve Direct Ads, Fallback to AdMob)</option>
+                    <option value="hybrid">Hybrid Balanced (Alternate 50/50: Direct Ads &amp; AdMob Native Ads)</option>
                     <option value="admob_first">AdMob First (Serve AdMob, Fallback to Direct)</option>
+                    <option value="direct_first">Direct First (Serve Direct Ads, Fallback to AdMob)</option>
                     <option value="direct_only">Direct Ads Only (Mute AdMob)</option>
                     <option value="admob_only">Google AdMob Only (Mute Direct Ads)</option>
                   </select>

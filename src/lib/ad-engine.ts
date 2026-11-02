@@ -143,7 +143,50 @@ export async function injectAdsIntoFeedCards(
     if (newsCounter % frequency === 0) {
       let injected = false
 
-      if (strategy === 'direct_first' || strategy === 'direct_only') {
+      if (strategy === 'hybrid') {
+        const canServeAdmob = admobConfig.isEnabled && admobConfig.nativeEnabled
+        const canServeDirect = customAds.length > 0
+
+        if (canServeAdmob && canServeDirect) {
+          // Alternate 50/50 between Direct custom ads and AdMob native ads
+          if (adSlotIndex % 2 === 0) {
+            const chosenAd = customAds[Math.floor(adSlotIndex / 2) % customAds.length]
+            feedWithAds.push({
+              type: 'ad',
+              ad: {
+                ...chosenAd,
+                imagesUrls: safeJsonParse<string[]>(chosenAd.imagesUrls || '[]', []),
+                targetStateIds: safeJsonParse<string[]>(chosenAd.targetStateIds || '[]', []),
+                targetDistrictIds: safeJsonParse<string[]>(chosenAd.targetDistrictIds || '[]', []),
+                targetMandalIds: safeJsonParse<string[]>(chosenAd.targetMandalIds || '[]', []),
+                targetCategoryIds: safeJsonParse<string[]>(chosenAd.targetCategoryIds || '[]', []),
+              }
+            })
+          } else {
+            feedWithAds.push({ type: 'admob_native' })
+          }
+          adSlotIndex++
+          injected = true
+        } else if (canServeAdmob) {
+          feedWithAds.push({ type: 'admob_native' })
+          injected = true
+        } else if (canServeDirect) {
+          const chosenAd = customAds[adSlotIndex % customAds.length]
+          adSlotIndex++
+          feedWithAds.push({
+            type: 'ad',
+            ad: {
+              ...chosenAd,
+              imagesUrls: safeJsonParse<string[]>(chosenAd.imagesUrls || '[]', []),
+              targetStateIds: safeJsonParse<string[]>(chosenAd.targetStateIds || '[]', []),
+              targetDistrictIds: safeJsonParse<string[]>(chosenAd.targetDistrictIds || '[]', []),
+              targetMandalIds: safeJsonParse<string[]>(chosenAd.targetMandalIds || '[]', []),
+              targetCategoryIds: safeJsonParse<string[]>(chosenAd.targetCategoryIds || '[]', []),
+            }
+          })
+          injected = true
+        }
+      } else if (strategy === 'direct_first' || strategy === 'direct_only') {
         if (customAds.length > 0) {
           const chosenAd = customAds[adSlotIndex % customAds.length]
           adSlotIndex++
