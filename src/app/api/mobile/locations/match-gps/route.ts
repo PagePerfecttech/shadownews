@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       try {
         const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=14`;
         const res = await fetch(url, {
-          headers: { 'User-Agent': 'TelanganaJyothiApp/1.0' }
+          headers: { 'User-Agent': 'ShadowNewsApp/1.0' }
         });
         const data = await res.json();
         if (data && data.address) {

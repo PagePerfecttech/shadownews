@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 export const revalidate = 900 // Revalidate every 15 minutes
 
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://telanganajyothi.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://shadownews.com'
   const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000)
 
   try {

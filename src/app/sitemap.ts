@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 export const revalidate = 3600 // Revalidate sitemap every hour
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://telanganajyothi.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://shadownews.com'
 
   // Fetch static routes
   const staticRoutes: MetadataRoute.Sitemap = [

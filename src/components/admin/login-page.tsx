@@ -52,10 +52,10 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-xl border-0">
         <CardHeader className="text-center space-y-4 pb-2">
           <div className="mx-auto w-20 h-20 rounded-xl overflow-hidden flex items-center justify-center shadow-lg bg-white p-1">
-            <img src="/logo.png" alt="Telangana Jyothi Spot News" className="w-full h-full object-contain" />
+            <img src="/logo.png" alt="Shadow News Spot News" className="w-full h-full object-contain" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">Telangana Jyothi</CardTitle>
+            <CardTitle className="text-2xl font-bold">Shadow News</CardTitle>
             <CardDescription className="text-base font-medium text-red-600">Spot News — Editorial Portal</CardDescription>
           </div>
         </CardHeader>
@@ -68,7 +68,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@telanganajyothi.com"
+                placeholder="admin@shadownews.com"
                 required
               />
             </div>
@@ -128,7 +128,7 @@ export default function LoginPage() {
               Please contact the primary system administrator or the IT Support desk to reset your credentials. A super-administrator can reset your password from the "Admin Users" management panel.
             </p>
             <div className="bg-muted p-3 rounded-lg border text-xs font-mono">
-              Support Email: support@telanganajyothi.com
+              Support Email: support@shadownews.com
             </div>
           </div>
           <DialogFooter>

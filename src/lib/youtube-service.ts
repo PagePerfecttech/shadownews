@@ -39,7 +39,7 @@ export async function uploadToYouTubeShorts(videoId: string, title: string, desc
     const tempFilePath = await downloadFile(fileUrl)
 
     const fullTitle = `${title} #shorts`.substring(0, 100)
-    const fullDescription = `${description}\n\nDownload our app: https://m.telanganajyothi.in\n#shorts #telanganajyothi`
+    const fullDescription = `${description}\n\nDownload our app: https://m.shadownews.in\n#shorts #shadownews`
 
     const res = await youtube.videos.insert({
       part: ['snippet', 'status'],

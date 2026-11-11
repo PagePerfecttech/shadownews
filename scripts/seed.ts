@@ -10,10 +10,10 @@ async function main() {
   // 1. Create Super Admin (with hashed password)
   const hashedPassword = await bcrypt.hash('admin123', 10)
   const admin = await prisma.admin.upsert({
-    where: { email: 'admin@telanganajyothi.com' },
+    where: { email: 'admin@shadownews.com' },
     update: {},
     create: {
-      email: 'admin@telanganajyothi.com',
+      email: 'admin@shadownews.com',
       passwordHash: hashedPassword,
       name: 'Super Admin',
       role: 'super_admin',
@@ -108,8 +108,8 @@ async function main() {
     { key: 'admob_rewarded_id', value: '', description: 'AdMob Rewarded Ad Unit ID' },
     { key: 'admob_frequency_cap', value: '5', description: 'Ad frequency cap per session' },
     { key: 'custom_banner_enabled', value: 'true', description: 'Custom banner ads enabled' },
-    { key: 'custom_banner_image_url', value: 'https://placehold.co/800x100/DC2626/white?text=Telangana+Jyothi+Banner+Ad', description: 'Custom banner ad image URL' },
-    { key: 'custom_banner_link_url', value: 'https://telanganajyothi.vercel.app', description: 'Custom banner ad click URL' },
+    { key: 'custom_banner_image_url', value: 'https://placehold.co/800x100/DC2626/white?text=Shadow+News+Banner+Ad', description: 'Custom banner ad image URL' },
+    { key: 'custom_banner_link_url', value: 'https://shadownews.vercel.app', description: 'Custom banner ad click URL' },
     { key: 'force_update_android', value: '1.0.0', description: 'Minimum Android version' },
     { key: 'force_update_ios', value: '1.0.0', description: 'Minimum iOS version' },
     { key: 'force_update_hard_block', value: 'false', description: 'Hard block outdated apps' },

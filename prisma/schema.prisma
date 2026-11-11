@@ -200,6 +200,12 @@ model Reporter {
   mandal             Mandal?   @relation(fields: [mandalId], references: [id])
   state              State     @relation(fields: [stateId], references: [id])
 
+  // PERFORMANCE: Added indexes for commonly queried fields
+  @@index([status])
+  @@index([districtId])
+  @@index([stateId])
+  @@index([phone])
+  @@index([createdAt(sort: Desc)])
   @@map("reporters")
 }
 

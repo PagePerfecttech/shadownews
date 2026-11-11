@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://m.telanganajyothi.in'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://m.shadownews.in'
   const images: string[] = safeJsonParse<string[]>(news.imagesUrls, [])
   let imageUrl = news.thumbnailUrl || (images.length > 0 ? images[0] : `${baseUrl}/spotnewslogo.png`)
   if (imageUrl.startsWith('/')) {
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const cleanDescription = (news.shortDesc || news.title || '').trim()
 
   return {
-    title: `${news.title} | Telangana Jyothi Spot News`,
+    title: `${news.title} | Shadow News`,
     description: cleanDescription,
     metadataBase: new URL(baseUrl),
     alternates: {
@@ -46,7 +46,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description: cleanDescription,
       url: `${baseUrl}/p/${id}`,
       type: 'article',
-      siteName: 'Telangana Jyothi Spot News',
+      siteName: 'Shadow News',
       locale: 'te_IN',
       images: [
         {
@@ -190,7 +190,7 @@ export default async function NewsPreviewPage({ params }: PageProps) {
           {/* CTA Button */}
           <a
             id="open-app-btn"
-            href={`https://play.google.com/store/apps/details?id=com.telanganajyothi.shorts`}
+            href={`https://play.google.com/store/apps/details?id=com.shadownews.app`}
             className="w-full py-3.5 bg-[#D32F2F] hover:bg-[#B71C1C] text-white font-semibold rounded-2xl text-center shadow-md shadow-red-200 transition-all block duration-200"
           >
             యాప్‌లో చదవండి (Open in App)
@@ -203,7 +203,7 @@ export default async function NewsPreviewPage({ params }: PageProps) {
             var isAndroid = /Android/i.test(navigator.userAgent);
             var btn = document.getElementById('open-app-btn');
             if (isAndroid) {
-              var intentUrl = "intent://m.telanganajyothi.in/p/${id}#Intent;scheme=https;package=com.telanganajyothi.shorts;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.telanganajyothi.shorts;end";
+              var intentUrl = "intent://m.shadownews.in/p/${id}#Intent;scheme=https;package=com.shadownews.app;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.shadownews.app;end";
               if (btn) btn.href = intentUrl;
               setTimeout(function() {
                 window.location.href = intentUrl;
@@ -213,7 +213,7 @@ export default async function NewsPreviewPage({ params }: PageProps) {
         }}
       />
       <p className="text-gray-400 text-xs mt-6">
-        © {new Date().getFullYear()} Telangana Jyothi. All rights reserved.
+        © {new Date().getFullYear()} Shadow News. All rights reserved.
       </p>
     </div>
   )

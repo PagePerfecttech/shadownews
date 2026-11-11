@@ -6,6 +6,12 @@ import { safeJsonParse } from '@/lib/json-utils'
 
 export async function POST(request: NextRequest) {
   try {
+    const truecallerClientId = process.env.TRUECALLER_CLIENT_ID
+    if (!truecallerClientId) {
+      console.error('TRUECALLER_CLIENT_ID not configured')
+      return NextResponse.json({ error: 'Truecaller not configured' }, { status: 500 })
+    }
+
     const body = await request.json()
     const { code, codeVerifier, payload, signature, signatureAlgorithm } = body
 
@@ -21,7 +27,7 @@ export async function POST(request: NextRequest) {
         },
         body: new URLSearchParams({
           grant_type: 'authorization_code',
-          client_id: 'lvdgepjfe0tgii9s4tlvq4so8v5nk-qvf6eurkmggc4',
+          client_id: truecallerClientId,
           code,
           code_verifier: codeVerifier,
         }),

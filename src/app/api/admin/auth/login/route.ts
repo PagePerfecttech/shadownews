@@ -1,15 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { loginSchema } from '@/lib/schemas'
+import { authLimiter } from '@/lib/ratelimit'
 import bcrypt from 'bcryptjs'
 import { SignJWT } from 'jose'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json()
-
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
+    // SECURITY: Rate limiting
+    const rateLimitResult = await authLimiter(request)
+    if (rateLimitResult) {
+      return rateLimitResult
     }
+
+    // SECURITY: Input validation
+    let data
+    try {
+      data = loginSchema.parse(await request.json())
+    } catch (validationError) {
+      return NextResponse.json(
+        { error: 'Invalid email or password format', details: validationError },
+        { status: 400 }
+      )
+    }
+
+    const { email, password } = data
 
     const admin = await db.admin.findUnique({
       where: { email, isActive: true },
@@ -24,15 +39,9 @@ export async function POST(request: NextRequest) {
     if (admin.passwordHash.startsWith('$2a$') || admin.passwordHash.startsWith('$2b$')) {
       passwordMatch = await bcrypt.compare(password, admin.passwordHash)
     } else {
-      // Legacy plaintext migration fallback - verify exact match then immediately rehash
-      passwordMatch = admin.passwordHash === password
-      if (passwordMatch) {
-        const hashedPassword = await bcrypt.hash(password, 10)
-        await db.admin.update({
-          where: { id: admin.id },
-          data: { passwordHash: hashedPassword },
-        })
-      }
+      // SECURITY: Reject plaintext passwords - all admins must use bcrypt
+      console.warn(`Login attempt with non-bcrypt password for admin: ${admin.email}`)
+      passwordMatch = false
     }
 
     if (!passwordMatch) {

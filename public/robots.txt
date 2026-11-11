@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://telanganajyothi.com/sitemap.xml
-Sitemap: https://telanganajyothi.com/google-news-sitemap.xml
+Sitemap: https://shadownews.com/sitemap.xml
+Sitemap: https://shadownews.com/google-news-sitemap.xml

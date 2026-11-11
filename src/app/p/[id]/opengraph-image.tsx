@@ -32,7 +32,7 @@ export default async function Image({ params }: { params: { id: string } }) {
 
   const images = safeJsonParse<string[]>(news.imagesUrls, [])
   const imageUrl = news.thumbnailUrl || (images.length > 0 ? images[0] : null)
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://m.telanganajyothi.in'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://m.shadownews.in'
   
   let finalImageUrl = imageUrl
   if (imageUrl && imageUrl.startsWith('/')) {
@@ -117,7 +117,7 @@ export default async function Image({ params }: { params: { id: string } }) {
             display: 'flex'
           }}>
             <span style={{ color: 'white', fontSize: '24px', fontWeight: 'bold' }}>
-              By {news.reporter?.name || 'Telangana Jyothi'}
+              By {news.reporter?.name || 'Shadow News'}
             </span>
           </div>
         </div>
@@ -195,7 +195,7 @@ export default async function Image({ params }: { params: { id: string } }) {
             marginTop: '16px' 
           }}>
             <span style={{ color: '#555555', fontSize: '20px', fontWeight: 'bold' }}>
-              By {news.reporter?.name || 'Telangana Jyothi'}
+              By {news.reporter?.name || 'Shadow News'}
             </span>
             <span style={{ color: '#888888', fontSize: '18px' }}>
               {new Date(news.publishedAt || news.createdAt).toLocaleDateString('en-IN', {

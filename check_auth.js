@@ -7,7 +7,7 @@ async function main() {
   const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback_secret_key_for_dev');
   
   const admin = await prisma.admin.findUnique({
-    where: { email: 'admin@telanganajyothi.com' },
+    where: { email: 'admin@shadownews.com' },
   });
   
   console.log("Admin from DB:", admin);

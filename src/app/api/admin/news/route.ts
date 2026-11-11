@@ -17,9 +17,15 @@ export async function GET(request: NextRequest) {
     const districtId = searchParams.get('districtId')
     const priority = searchParams.get('priority')
     const reporterId = searchParams.get('reporterId')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const search = searchParams.get('search')
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
+    // SECURITY: Cap limit to maximum of 100 to prevent DoS
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '20')), 100)
+    const search = searchParams.get('search')?.trim()
+
+    // SECURITY: Validate search string length
+    if (search && search.length > 100) {
+      return NextResponse.json({ error: 'Search query too long (max 100 characters)' }, { status: 400 })
+    }
 
     const where: Record<string, unknown> = { deletedAt: null }
     if (status && status !== 'all') where.status = status
@@ -74,7 +80,7 @@ export async function GET(request: NextRequest) {
       imagesUrls: safeJsonParse<string[]>(n.imagesUrls || '[]', []),
     }))
 
-    return NextResponse.json({ news: simplified, total, page, limit })
+    return NextResponse.json({ news: simplified, total, page, limit, hasMore: (page * limit) < total })
   } catch (error) {
     console.error('News list error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -1,7 +1,7 @@
 import { S3Client } from '@aws-sdk/client-s3'
 
-export const R2_BUCKET = process.env.R2_BUCKET || 'telanganajyothi'
-export const R2_PUBLIC_URL = (process.env.R2_PUBLIC_URL || 'https://pub-312b00b1f45d482fb83ed474d5216795.r2.dev').replace(/\/$/, '')
+export const R2_BUCKET = process.env.R2_BUCKET || 'voicestream'
+export const R2_PUBLIC_URL = (process.env.R2_PUBLIC_URL || 'https://pub-ebb3efc4808c4b6fbf35d3c6c26387d8.r2.dev').replace(/\/$/, '')
 
 export function getS3Client(): S3Client {
   const endpoint = process.env.R2_ENDPOINT

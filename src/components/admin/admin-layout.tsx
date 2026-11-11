@@ -128,7 +128,7 @@ function SidebarNav({
           <div className="overflow-hidden">
             <div className="flex flex-col">
               <h1 className="text-sm font-bold text-white tracking-wide">Spot News</h1>
-              <span className="text-[10px] text-red-400 font-semibold leading-tight">Telangana Jyothi</span>
+              <span className="text-[10px] text-red-400 font-semibold leading-tight">Shadow News</span>
             </div>
             <p className="text-[10px] text-gray-400 leading-tight">Master Control</p>
           </div>
@@ -265,7 +265,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center gap-3">
             {/* Live Web Link */}
             <a
-              href="https://m.telanganajyothi.in"
+              href="https://m.shadownews.in"
               target="_blank"
               rel="noreferrer"
               className="hidden md:flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-600 transition-colors px-2 py-1 rounded border"
