@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { verifyAuth } from '@/lib/auth'
 import { safeJsonParse, safeJsonStringify } from '@/lib/json-utils'
 import { messaging } from '@/lib/firebase-admin'
+import { sendOneSignalNotification } from '@/lib/onesignal'
 
 import { generate5CharNewsId } from '@/lib/id-generator'
 
@@ -193,6 +194,23 @@ export async function POST(request: NextRequest) {
         console.log(`FCM notification sent for news to topic: ${targetTopic}`)
       } catch (fcmError) {
         console.error('Failed to send FCM notification:', fcmError)
+      }
+
+      // Send OneSignal Push Notification
+      try {
+        const isBreaking = news.priority === 'urgent' || news.priority === 'breaking' || news.isFeatured
+        const isValidUrl = news.thumbnailUrl && news.thumbnailUrl.startsWith('http')
+        await sendOneSignalNotification({
+          title: isBreaking ? `🚨 బ్రేకింగ్ న్యూస్: ${news.title}` : news.title,
+          body: news.shortDesc || news.title,
+          imageUrl: isValidUrl ? news.thumbnailUrl : undefined,
+          data: {
+            route: `/p/${news.id}`,
+            newsId: news.id,
+          },
+        })
+      } catch (osError) {
+        console.error('Failed to send OneSignal push notification:', osError)
       }
     }
 

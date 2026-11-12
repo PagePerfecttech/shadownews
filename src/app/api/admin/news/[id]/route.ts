@@ -6,6 +6,7 @@ import { processNewsApprovalEarning, reverseNewsReward } from '@/lib/wallet-serv
 import { processNewsRejectionScore } from '@/lib/scoring-service'
 import { uploadToYouTubeShorts } from '@/lib/youtube-service'
 import { messaging } from '@/lib/firebase-admin'
+import { sendOneSignalNotification } from '@/lib/onesignal'
 
 export async function GET(
   request: NextRequest,
@@ -127,7 +128,7 @@ export async function PUT(
     if (data.status === 'published' && !wasPublished) {
       const isVideo = !!(news.videoUrl)
       await processNewsApprovalEarning(id, isVideo)
-      
+
       if (isVideo && news.videoUrl) {
         // Run youtube upload asynchronously
         uploadToYouTubeShorts(id, news.title, news.shortDesc || '', news.videoUrl, true)
@@ -171,6 +172,23 @@ export async function PUT(
           console.log(`FCM notification sent for news update to topic: ${targetTopic}`)
         } catch (fcmError) {
           console.error('Failed to send FCM notification:', fcmError)
+        }
+
+        // Send OneSignal Push Notification
+        try {
+          const isBreaking = news.priority === 'urgent' || news.priority === 'breaking' || news.isFeatured
+          const isValidUrl = news.thumbnailUrl && news.thumbnailUrl.startsWith('http')
+          await sendOneSignalNotification({
+            title: isBreaking ? `🚨 బ్రేకింగ్ న్యూస్: ${news.title}` : news.title,
+            body: news.shortDesc || news.title,
+            imageUrl: isValidUrl ? news.thumbnailUrl : undefined,
+            data: {
+              route: `/p/${news.id}`,
+              newsId: news.id,
+            },
+          })
+        } catch (osError) {
+          console.error('Failed to send OneSignal push notification:', osError)
         }
       }
     }
@@ -232,7 +250,7 @@ export async function PATCH(
     if (data.status === 'published' && !wasPublished) {
       const isVideo = !!(news.videoUrl)
       await processNewsApprovalEarning(id, isVideo)
-      
+
       if (isVideo && news.videoUrl) {
         uploadToYouTubeShorts(id, news.title, news.shortDesc || '', news.videoUrl, true)
       }
@@ -275,6 +293,23 @@ export async function PATCH(
           console.log(`FCM notification sent for news update to topic: ${targetTopic}`)
         } catch (fcmError) {
           console.error('Failed to send FCM notification:', fcmError)
+        }
+
+        // Send OneSignal Push Notification
+        try {
+          const isBreaking = news.priority === 'urgent' || news.priority === 'breaking' || news.isFeatured
+          const isValidUrl = news.thumbnailUrl && news.thumbnailUrl.startsWith('http')
+          await sendOneSignalNotification({
+            title: isBreaking ? `🚨 బ్రేకింగ్ న్యూస్: ${news.title}` : news.title,
+            body: news.shortDesc || news.title,
+            imageUrl: isValidUrl ? news.thumbnailUrl : undefined,
+            data: {
+              route: `/p/${news.id}`,
+              newsId: news.id,
+            },
+          })
+        } catch (osError) {
+          console.error('Failed to send OneSignal push notification:', osError)
         }
       }
     }

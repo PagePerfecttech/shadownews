@@ -32,6 +32,10 @@ export async function GET() {
       admob_interstitial_id_ios: config.iosInterstitialId,
       admob_native_id_android: config.androidNativeId,
       admob_native_id_ios: config.iosNativeId,
+      admob_rewarded_id_android: config.androidRewardedId,
+      admob_rewarded_id_ios: config.iosRewardedId,
+      admob_rewarded_interstitial_id_android: 'ca-app-pub-8507128258192249/1588678059',
+      admob_rewarded_interstitial_id_ios: 'ca-app-pub-8507128258192249/1588678059',
     }
 
     for (const s of settings) {

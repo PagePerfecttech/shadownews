@@ -36,6 +36,8 @@ export async function GET() {
         interstitialId: admobConfig.androidInterstitialId || config.admob_interstitial_id || '',
         nativeId: admobConfig.androidNativeId || config.admob_native_id || '',
         rewardedId: admobConfig.androidRewardedId || config.admob_rewarded_id || '',
+        rewardedInterstitialId: 'ca-app-pub-8507128258192249/1588678059',
+        appOpenId: admobConfig.androidAppOpenId || config.admob_app_open_id || '',
         frequencyCap: admobConfig.feedAdFrequency || 5,
         nativeEnabled: admobConfig.nativeEnabled,
         bannerEnabled: admobConfig.bannerEnabled,

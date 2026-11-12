@@ -37,6 +37,8 @@ const envSchema = z.object({
   TRUECALLER_CLIENT_ID: z.string().optional(),
   FIREBASE_ADMIN_SDK_KEY: z.string().optional(),
   FCM_PRIVATE_KEY: z.string().optional(),
+  ONESIGNAL_APP_ID: z.string().optional(),
+  ONESIGNAL_REST_API_KEY: z.string().optional(),
 })
 
 /**
