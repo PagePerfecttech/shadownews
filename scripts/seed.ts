@@ -8,12 +8,18 @@ async function main() {
   console.log('🌱 Seeding database...')
 
   // 1. Create Super Admin (with hashed password)
-  const hashedPassword = await bcrypt.hash('admin123', 10)
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@shadownews.in'
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
+  const hashedPassword = await bcrypt.hash(adminPassword, 10)
   const admin = await prisma.admin.upsert({
-    where: { email: 'admin@shadownews.com' },
-    update: {},
+    where: { email: adminEmail },
+    update: {
+      passwordHash: hashedPassword,
+      isActive: true,
+      role: 'super_admin',
+    },
     create: {
-      email: 'admin@shadownews.com',
+      email: adminEmail,
       passwordHash: hashedPassword,
       name: 'Super Admin',
       role: 'super_admin',

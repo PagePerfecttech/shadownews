@@ -6,11 +6,14 @@ const prisma = new PrismaClient();
 async function main() {
   const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback_secret_key_for_dev');
   
+  const bcrypt = require('bcryptjs');
   const admin = await prisma.admin.findUnique({
-    where: { email: 'admin@shadownews.com' },
+    where: { email: 'admin@shadownews.in' },
   });
   
   console.log("Admin from DB:", admin);
+  const isMatch = await bcrypt.compare('admin123', admin.passwordHash);
+  console.log("Password matches 'admin123':", isMatch);
   
   const token = await new SignJWT({ adminId: admin.id, email: admin.email, role: admin.role })
     .setProtectedHeader({ alg: 'HS256' })
