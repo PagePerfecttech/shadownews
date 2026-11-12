@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-
-function decodeHtml(html: string): string {
-  if (!html) return ''
-  return html
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#039;/g, "'")
-    .replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1')
-    .trim()
-}
+import { fetchAndParseFeed, getFallbackImage, scrapeArticleOgImage } from '@/lib/feed-parser'
+import { processArticleWithAIAgent } from '@/lib/feed-ai-agent'
 
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
+    const { searchParams } = new URL(request.url)
+    const secretQuery = searchParams.get('secret')
     const cronSecret = process.env.CRON_SECRET
 
     // CRITICAL: cronSecret MUST be configured and match
@@ -25,89 +16,93 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
     }
 
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    if (authHeader !== `Bearer ${cronSecret}` && secretQuery !== cronSecret) {
       return NextResponse.json({ error: 'Unauthorized cron request' }, { status: 401 })
     }
 
-    const rssUrl = 'https://www.teluguone.com/news/rss/latestnews/latestnews-25.rss'
-    const res = await fetch(rssUrl, { cache: 'no-store' })
-    if (!res.ok) {
-      return NextResponse.json({ error: `Failed to fetch RSS feed: ${res.statusText}` }, { status: 502 })
-    }
+    const [categories, states, districts, admin] = await Promise.all([
+      db.category.findMany({ where: { isActive: true }, select: { id: true, name: true, slug: true } }),
+      db.state.findMany({ where: { isActive: true }, select: { id: true, name: true, code: true } }),
+      db.district.findMany({ where: { isActive: true }, select: { id: true, name: true, stateId: true } }),
+      db.admin.findFirst({ where: { isActive: true } }),
+    ])
 
-    const rssData = await res.text()
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g
-    let match
-    const rawItems: string[] = []
-    while ((match = itemRegex.exec(rssData)) !== null) {
-      rawItems.push(match[1])
-    }
-
-    // Process top 10 items
-    const itemsToProcess = rawItems.slice(0, 10)
-    let importedCount = 0
-
-    // Get default category and state
-    const category = await db.category.findFirst({ where: { isActive: true } })
-    const state = await db.state.findFirst({ where: { isActive: true } })
-    const admin = await db.admin.findFirst({ where: { isActive: true } })
-
-    if (!category || !state || !admin) {
+    if (!admin || categories.length === 0 || states.length === 0) {
       return NextResponse.json({ error: 'Database state missing active category, state, or admin' }, { status: 500 })
     }
 
-    const defaultThumbnail = 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=800&auto=format&fit=crop&q=60'
+    const rssUrl = 'https://www.teluguone.com/news/rss/latestnews/latestnews-25.rss'
+    const items = await fetchAndParseFeed(rssUrl, 10)
+    let importedCount = 0
 
-    for (const rawItem of itemsToProcess) {
-      const titleMatch = /<title>([\s\S]*?)<\/title>/.exec(rawItem)
-      const linkMatch = /<link>([\s\S]*?)<\/link>/.exec(rawItem)
-      const pubDateMatch = /<pubDate>([\s\S]*?)<\/pubDate>/.exec(rawItem)
-
-      if (!titleMatch || !linkMatch) continue
-
-      const title = decodeHtml(titleMatch[1])
-      const link = decodeHtml(linkMatch[1])
-      const pubDateStr = pubDateMatch ? decodeHtml(pubDateMatch[1]) : new Date().toISOString()
-      const publishedAt = new Date(pubDateStr)
-
-      const existing = await db.news.findFirst({ where: { title } })
+    for (const item of items) {
+      const existing = await db.news.findFirst({
+        where: {
+          OR: [
+            ...(item.link ? [{ sourceUrl: item.link }] : []),
+            { title: item.title },
+          ],
+        },
+      })
       if (existing) continue
 
-      let description = `తెలుగువన్ అందిస్తున్న తాజా వార్తలు: ${title}.`
-      let imageUrl = defaultThumbnail
-
-      try {
-        const pageRes = await fetch(link, { cache: 'no-store' })
-        if (pageRes.ok) {
-          const pageHtml = await pageRes.text()
-          const ogDescMatch = /<meta\s+property=["']og:description["']\s+content=["']([\s\S]*?)["']/.exec(pageHtml) ||
-                              /<meta\s+name=["']description["']\s+content=["']([\s\S]*?)["']/.exec(pageHtml)
-          if (ogDescMatch) description = decodeHtml(ogDescMatch[1])
-
-          const ogImageMatch = /<meta\s+property=["']og:image["']\s+content=["']([\s\S]*?)["']/.exec(pageHtml) ||
-                               /<meta\s+name=["']twitter:image["']\s+content=["']([\s\S]*?)["']/.exec(pageHtml)
-          if (ogImageMatch) imageUrl = decodeHtml(ogImageMatch[1])
-        }
-      } catch (err) {
-        console.warn(`Failed to scrape ${link}, using default meta.`)
+      let thumbnail = item.thumbnailUrl
+      if (!thumbnail && item.link) {
+        thumbnail = (await scrapeArticleOgImage(item.link)) || ''
       }
 
-      await db.news.create({
-        data: {
-          title,
-          shortDesc: description.substring(0, 500),
-          content: description,
-          thumbnailUrl: imageUrl,
-          imagesUrls: JSON.stringify([imageUrl]),
-          sourceType: 'rss',
-          sourceUrl: link,
-          status: 'published',
-          publishedAt,
-          categoryId: category.id,
-          stateId: state.id,
-          createdBy: admin.id,
-        }
+      const processed = await processArticleWithAIAgent(item, {
+        categories,
+        states,
+        districts,
+        options: { autoRewrite: true, autoCategory: true, autoLocation: true },
       })
+
+      const finalThumbnail = thumbnail || getFallbackImage(processed.categorySlug)
+
+      const created = await db.news.create({
+        data: {
+          title: processed.aiTitle || item.title,
+          shortDesc: processed.aiShortDesc.substring(0, 500),
+          content: processed.aiContent,
+          aiTitle: processed.aiTitle,
+          aiShortDesc: processed.aiShortDesc,
+          aiContent: processed.aiContent,
+          aiStatus: processed.aiStatus,
+          thumbnailUrl: finalThumbnail,
+          imagesUrls: JSON.stringify([finalThumbnail]),
+          sourceType: 'rss',
+          sourceUrl: item.link || null,
+          externalLink: item.link || null,
+          status: 'published',
+          publishedAt: item.publishedAt ? new Date(item.publishedAt) : new Date(),
+          categoryId: processed.categoryId,
+          stateId: processed.stateId,
+          districtId: processed.districtId || null,
+          createdBy: admin.id,
+          approvedBy: admin.id,
+          approvedAt: new Date(),
+        },
+      })
+
+      if (processed.tags && processed.tags.length > 0) {
+        for (const tagName of processed.tags) {
+          try {
+            const slug = tagName.toLowerCase().replace(/[^a-z0-9\u0C00-\u0C7F]+/g, '-').replace(/(^-|-$)/g, '') || `tag-${Date.now()}`
+            const tag = await db.tag.upsert({
+              where: { slug },
+              update: {},
+              create: { name: tagName, slug, type: 'topic' },
+            })
+            await db.newsTag.upsert({
+              where: { newsId_tagId: { newsId: created.id, tagId: tag.id } },
+              update: {},
+              create: { newsId: created.id, tagId: tag.id },
+            })
+          } catch {}
+        }
+      }
+
       importedCount++
     }
 

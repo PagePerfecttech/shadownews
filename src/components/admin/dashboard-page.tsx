@@ -27,6 +27,7 @@ import {
   RefreshCw,
   ShieldCheck,
   CheckCircle2,
+  Rss,
 } from 'lucide-react'
 import {
   PieChart,
@@ -172,6 +173,16 @@ export default function DashboardPage() {
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActiveView('feed-import')}
+            className="border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold gap-1.5 h-8"
+          >
+            <Rss className="h-3.5 w-3.5" />
+            Feed Import & AI
           </Button>
 
           <Button

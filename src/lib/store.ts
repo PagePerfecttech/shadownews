@@ -6,6 +6,7 @@ import { persist } from 'zustand/middleware'
 export type ViewType =
   | 'dashboard'
   | 'news'
+  | 'feed-import'
   | 'videos'
   | 'locations'
   | 'categories'

@@ -33,6 +33,8 @@ import {
   Search,
   ExternalLink,
   ShieldAlert,
+  Rss,
+  Sparkles,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -50,6 +52,7 @@ const navItems: NavItem[] = [
 
   // Content
   { id: 'news', label: 'News Management', icon: Newspaper, section: 'Editorial & Content', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },
+  { id: 'feed-import', label: 'Feed Import & AI', icon: Rss, section: 'Editorial & Content', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },
   { id: 'reports', label: 'Citizen Reports', icon: ShieldAlert, section: 'Editorial & Content', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },
   { id: 'videos', label: 'Shorts & Videos', icon: Video, section: 'Editorial & Content', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },
   { id: 'categories', label: 'Categories', icon: FolderOpen, section: 'Editorial & Content', roles: ['super_admin', 'superadmin', 'admin', 'editor'] },

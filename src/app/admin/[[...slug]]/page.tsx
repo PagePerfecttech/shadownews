@@ -7,6 +7,7 @@ import LoginPage from '@/components/admin/login-page'
 import AdminLayout from '@/components/admin/admin-layout'
 import DashboardPage from '@/components/admin/dashboard-page'
 import NewsPage from '@/components/admin/news-page'
+import FeedImportPage from '@/components/admin/feed-import-page'
 import VideosPage from '@/components/admin/videos-page'
 import LocationsPage from '@/components/admin/locations-page'
 import CategoriesPage from '@/components/admin/categories-page'
@@ -27,6 +28,7 @@ import ReportsPage from '@/components/admin/reports-page'
 const moduleComponents: Record<ViewType, React.ComponentType> = {
   dashboard: DashboardPage,
   news: NewsPage,
+  'feed-import': FeedImportPage,
   reports: ReportsPage,
   videos: VideosPage,
   locations: LocationsPage,
