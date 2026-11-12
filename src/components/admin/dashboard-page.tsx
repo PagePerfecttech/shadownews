@@ -158,7 +158,7 @@ export default function DashboardPage() {
             Welcome back, {currentUser?.name || 'Editor'}! 👋
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Telangana Jyothi Spot News · Executive Operations Command Center
+            Shadow News · Executive Operations Command Center
           </p>
         </div>
 

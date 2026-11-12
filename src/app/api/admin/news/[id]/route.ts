@@ -154,7 +154,7 @@ export async function PUT(
             android: {
               priority: 'high',
               notification: {
-                channelId: 'spotnews_default_channel',
+                channelId: 'shadownews_default_channel',
                 sound: 'default',
                 priority: 'max',
               },
@@ -258,7 +258,7 @@ export async function PATCH(
             android: {
               priority: 'high',
               notification: {
-                channelId: 'spotnews_default_channel',
+                channelId: 'shadownews_default_channel',
                 sound: 'default',
                 priority: 'max',
               },

@@ -127,10 +127,10 @@ function SidebarNav({
         {!collapsed && (
           <div className="overflow-hidden">
             <div className="flex flex-col">
-              <h1 className="text-sm font-bold text-white tracking-wide">Spot News</h1>
-              <span className="text-[10px] text-red-400 font-semibold leading-tight">Shadow News</span>
+              <h1 className="text-sm font-bold text-white tracking-wide">Shadow News</h1>
+              <span className="text-[10px] text-red-400 font-semibold leading-tight">Master Control</span>
             </div>
-            <p className="text-[10px] text-gray-400 leading-tight">Master Control</p>
+            <p className="text-[10px] text-gray-400 leading-tight">Admin Portal</p>
           </div>
         )}
       </div>
@@ -257,7 +257,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {activeView.replace(/-/g, ' ')}
               </h2>
               <p className="text-[11px] text-muted-foreground hidden sm:block">
-                Telangana Jyothi Administration Portal
+                Shadow News Administration Portal
               </p>
             </div>
           </div>

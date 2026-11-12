@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
         }
       }
       const reporterAvatar = item.reporter?.avatar || (item as any).admin?.avatar || '';
-      const reporterName = item.reporter?.name || (item as any).admin?.name || 'Spot News Reporter';
+      const reporterName = item.reporter?.name || (item as any).admin?.name || 'Shadow News Reporter';
       const reporterObj = {
         name: reporterName,
         avatar: reporterAvatar || null,

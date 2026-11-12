@@ -53,7 +53,7 @@ export async function POST(
       android: {
         priority: 'high',
         notification: {
-          channelId: 'spotnews_default_channel',
+          channelId: 'shadownews_default_channel',
           sound: 'default',
           priority: 'max',
         },

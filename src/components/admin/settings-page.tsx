@@ -595,7 +595,7 @@ export default function SettingsPage() {
             <Textarea
               value={settings.maintenance_message || ''}
               onChange={e => updateSetting('maintenance_message', e.target.value)}
-              placeholder="We are upgrading our servers. Shadow News Spot News will be back in 15 minutes."
+              placeholder="We are upgrading our servers. Shadow News will be back in 15 minutes."
               rows={2}
             />
           </div>

@@ -1,6 +1,6 @@
 /**
- * Watermark Utility for Telangana Jyothi SPOT NEWS
- * Applies a light, semi-transparent SPOT NEWS watermark onto uploaded images.
+ * Watermark Utility for Shadow News
+ * Applies a light, semi-transparent SHADOW NEWS watermark onto uploaded images.
  */
 
 export async function applyWatermark(imageBuffer: any, mimeType: string): Promise<any> {
@@ -35,7 +35,7 @@ export async function applyWatermark(imageBuffer: any, mimeType: string): Promis
         </style>
         <g transform="translate(${width - Math.floor(width / 3.2)}, ${height - 40})">
           <rect class="watermark-bg" x="0" y="-22" width="${Math.floor(width / 3.4)}" height="32"/>
-          <text x="10" y="0" class="watermark-text">SPOT NEWS</text>
+          <text x="10" y="0" class="watermark-text">SHADOW NEWS</text>
         </g>
       </svg>
     `);

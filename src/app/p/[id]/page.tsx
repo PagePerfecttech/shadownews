@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://m.shadownews.in'
   const images: string[] = safeJsonParse<string[]>(news.imagesUrls, [])
-  let imageUrl = news.thumbnailUrl || (images.length > 0 ? images[0] : `${baseUrl}/spotnewslogo.png`)
+  let imageUrl = news.thumbnailUrl || (images.length > 0 ? images[0] : `${baseUrl}/logo.png`)
   if (imageUrl.startsWith('/')) {
     imageUrl = `${baseUrl}${imageUrl}`
   }
@@ -107,8 +107,8 @@ export default async function NewsPreviewPage({ params }: PageProps) {
             {/* Watermark overlay */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <img
-                src="/spotnewslogo.png"
-                alt="Watermark"
+                src="/logo.png"
+                alt="Shadow News Watermark"
                 className="w-28 h-auto opacity-15 object-contain"
               />
             </div>

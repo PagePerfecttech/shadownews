@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Spot News - Admin Dashboard",
-  description: "Admin dashboard for managing Spot News content, reporters, ads, and app configuration. A Product of Shadow News.",
+  title: "Shadow News - Admin Dashboard",
+  description: "Admin dashboard for managing Shadow News content, reporters, ads, and app configuration.",
   icons: {
     icon: [
       { url: '/favicon.ico' },
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   },
   manifest: '/site.webmanifest',
   appleWebApp: {
-    title: 'TJ Spot News',
+    title: 'Shadow News',
   },
 };
 

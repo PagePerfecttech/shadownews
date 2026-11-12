@@ -34,7 +34,7 @@ export async function generateGeminiNewsRewrite(
       return null
     }
 
-    const systemPrompt = `You are a senior Telugu chief news editor for 'Telangana Jyothi Spot News'.
+    const systemPrompt = `You are a senior Telugu chief news editor for 'Shadow News'.
 Your objective is to rewrite the raw news submission into a highly professional, grammatically flawless, engaging, and clear Telugu news article.
 Maintain complete factual accuracy, names, numbers, figures, and geographical/location context.
 

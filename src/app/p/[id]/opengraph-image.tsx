@@ -51,14 +51,14 @@ export default async function Image({ params }: { params: { id: string } }) {
     console.error('Error reading card_strip.jpeg:', e)
   }
 
-  // Load spotnewslogo.png as base64 for watermark rendering
-  let spotNewsLogoBase64 = ''
+  // Load logo.png as base64 for watermark rendering
+  let shadowNewsLogoBase64 = ''
   try {
-    const filePath = path.join(process.cwd(), 'public', 'spotnewslogo.png')
+    const filePath = path.join(process.cwd(), 'public', 'logo.png')
     const fileBuffer = fs.readFileSync(filePath)
-    spotNewsLogoBase64 = `data:image/png;base64,${fileBuffer.toString('base64')}`
+    shadowNewsLogoBase64 = `data:image/png;base64,${fileBuffer.toString('base64')}`
   } catch (e) {
-    console.error('Error reading spotnewslogo.png:', e)
+    console.error('Error reading logo.png:', e)
   }
 
   return new ImageResponse(
@@ -82,7 +82,7 @@ export default async function Image({ params }: { params: { id: string } }) {
           )}
 
           {/* Watermark overlay */}
-          {spotNewsLogoBase64 ? (
+          {shadowNewsLogoBase64 ? (
             <div style={{
               position: 'absolute',
               top: 0,
@@ -95,7 +95,7 @@ export default async function Image({ params }: { params: { id: string } }) {
               pointerEvents: 'none'
             }}>
               <img
-                src={spotNewsLogoBase64}
+                src={shadowNewsLogoBase64}
                 style={{
                   width: '240px',
                   height: 'auto',

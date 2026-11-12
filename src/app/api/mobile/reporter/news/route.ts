@@ -18,7 +18,7 @@ async function uploadFileToR2(file: File, prefix: string): Promise<string> {
   const filename = `${prefix}-${timestamp}-${randomStr}.${ext}`
   let buffer: any = Buffer.from(await file.arrayBuffer())
 
-  // Apply light SPOT NEWS watermark to image uploads
+  // Apply light SHADOW NEWS watermark to image uploads
   if (file.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp'].includes(ext.toLowerCase())) {
     buffer = await applyWatermark(buffer, file.type || 'image/jpeg');
   }

@@ -46,7 +46,7 @@ export async function GET() {
     <loc>${baseUrl}/p/${item.id}</loc>
     <news:news>
       <news:publication>
-        <news:name>Telangana Jyothi</news:name>
+        <news:name>Shadow News</news:name>
         <news:language>te</news:language>
       </news:publication>
       <news:publication_date>${pubDate}</news:publication_date>
