@@ -139,6 +139,25 @@ export default function VideosPage() {
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<VideoItem | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [importingYt, setImportingYt] = useState(false)
+
+  const handleAutoImportYouTube = async () => {
+    setImportingYt(true)
+    try {
+      const res = await authFetchJSON('/api/admin/videos/import-youtube', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+      if (!res.ok) throw new Error('Import failed')
+      const data = await res.json()
+      toast.success(`Auto-imported ${data.importedCount || 0} YouTube Shorts (${data.skippedCount || 0} existing skipped)`)
+      fetchVideos()
+    } catch {
+      toast.error('Failed to auto-import YouTube Shorts')
+    } finally {
+      setImportingYt(false)
+    }
+  }
 
   const fetchVideos = useCallback(async () => {
     setLoading(true)
@@ -349,6 +368,15 @@ export default function VideosPage() {
                 title="Refresh"
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleAutoImportYouTube}
+                disabled={importingYt}
+                className="border-red-200 text-red-600 hover:bg-red-50 flex-1 sm:flex-none"
+              >
+                <Film className={`h-4 w-4 mr-2 ${importingYt ? 'animate-spin' : ''}`} />
+                {importingYt ? 'Importing Shorts...' : 'Auto-Import Shorts'}
               </Button>
               <Button
                 onClick={openCreateForm}

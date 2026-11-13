@@ -19,8 +19,8 @@ export async function getAdMobConfig() {
         id: 'default',
         isEnabled: true,
         testMode: false,
-        primaryStrategy: 'direct_first',
-        feedAdFrequency: 5,
+        primaryStrategy: 'admob_first',
+        feedAdFrequency: 3,
         nativeEnabled: true,
         bannerEnabled: true,
       }
@@ -123,7 +123,7 @@ export async function injectAdsIntoFeedCards(
   targeting?: AdTargetingParams
 ): Promise<any[]> {
   const admobConfig = await getAdMobConfig()
-  const frequency = Math.max(2, admobConfig.feedAdFrequency || 5)
+  const frequency = Math.max(2, admobConfig.feedAdFrequency || 3)
   const strategy = admobConfig.primaryStrategy || 'direct_first'
 
   const customAds = await getActiveCustomAds('feed_inline', targeting)

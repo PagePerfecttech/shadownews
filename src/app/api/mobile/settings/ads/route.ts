@@ -21,7 +21,7 @@ export async function GET() {
       admob_enabled: String(config.isEnabled),
       admob_test_mode: String(config.testMode),
       admob_feed_enabled: String(config.isEnabled && config.nativeEnabled),
-      admob_feed_frequency: String(config.feedAdFrequency || 5),
+      admob_feed_frequency: String(config.feedAdFrequency || 3),
       admob_strategy: config.primaryStrategy,
 
       admob_app_open_id_android: config.androidAppOpenId,

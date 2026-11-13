@@ -4,6 +4,7 @@ import { fetchAndParseFeed, getFallbackImage, scrapeArticleOgImage } from '@/lib
 import { processArticleWithAIAgent } from '@/lib/feed-ai-agent'
 import { TELUGU_FEED_SOURCES } from '@/lib/feed-sources'
 import { sendOneSignalNotification } from '@/lib/onesignal'
+import { autoImportYouTubeShorts } from '@/lib/youtube-import'
 
 export async function GET(request: NextRequest) {
   return handleCron(request)
@@ -159,10 +160,20 @@ async function handleCron(request: NextRequest) {
       }
     }
 
+    // Auto-import YouTube Shorts for Videos section
+    let youtubeShortsImported = 0
+    try {
+      const ytResult = await autoImportYouTubeShorts(2)
+      youtubeShortsImported = ytResult.importedCount
+    } catch (ytErr) {
+      console.warn('YouTube Shorts Cron Auto-Import error:', ytErr)
+    }
+
     return NextResponse.json({
       success: true,
       importedCount: totalImported,
       skippedCount: totalSkipped,
+      youtubeShortsImported,
       timestamp: new Date().toISOString(),
     })
   } catch (error: any) {
