@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { fetchAndParseFeed, getFallbackImage, scrapeArticleOgImage } from '@/lib/feed-parser'
 import { processArticleWithAIAgent } from '@/lib/feed-ai-agent'
 import { TELUGU_FEED_SOURCES } from '@/lib/feed-sources'
+import { sendOneSignalNotification } from '@/lib/onesignal'
 
 export async function GET(request: NextRequest) {
   return handleCron(request)
@@ -136,6 +137,22 @@ async function handleCron(request: NextRequest) {
           }
 
           totalImported++
+
+          // Send push notification for newly imported published news (up to 1 per source run)
+          try {
+            await sendOneSignalNotification({
+              title: created.title,
+              body: created.shortDesc || 'తాజా వార్తలు - షాడో న్యూస్ లో ఇప్పుడే చదవండి',
+              imageUrl: finalThumb && finalThumb.startsWith('http') ? finalThumb : undefined,
+              data: {
+                route: `/p/${created.id}`,
+                newsId: created.id,
+                type: 'news_detail',
+              },
+            })
+          } catch (notifErr) {
+            console.warn('Failed to send push notification for cron news item:', notifErr)
+          }
         }
       } catch (feedErr) {
         console.warn(`Cron feed fetch error for ${feedUrl}:`, feedErr)

@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { logAudit, getClientIp } from '@/lib/audit'
 import { RawFeedItem, getFallbackImage } from '@/lib/feed-parser'
 import { processArticleWithAIAgent, AIProcessOptions } from '@/lib/feed-ai-agent'
+import { sendOneSignalNotification } from '@/lib/onesignal'
 
 export async function POST(request: NextRequest) {
   try {
@@ -148,6 +149,25 @@ export async function POST(request: NextRequest) {
       } catch (err: any) {
         console.error(`Failed to import item: ${item.title}`, err)
         skippedItems.push({ title: item.title, reason: err.message || 'Processing error' })
+      }
+    }
+
+    // Send Push Notification for imported published news
+    if (targetStatus === 'published' && importedResults.length > 0) {
+      for (const res of importedResults.slice(0, 2)) {
+        try {
+          await sendOneSignalNotification({
+            title: res.aiTitle || res.originalTitle,
+            body: 'తాజా వార్తలు - షాడో న్యూస్ లో ఇప్పుడే చదవండి (Read on Shadow News)',
+            imageUrl: res.thumbnailUrl && res.thumbnailUrl.startsWith('http') ? res.thumbnailUrl : undefined,
+            data: {
+              route: `/p/${res.id}`,
+              newsId: res.id,
+            },
+          })
+        } catch (pushErr) {
+          console.error('Error sending push for imported news:', pushErr)
+        }
       }
     }
 

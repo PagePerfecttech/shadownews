@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyFirebaseToken } from '@/lib/firebase-admin'
 import { safeJsonParse } from '@/lib/json-utils'
+import { getOrCreateUserFromToken } from '@/lib/user-utils'
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,8 +14,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: e.message }, { status: 401 })
     }
 
-    const phone = decodedToken.phone_number || (decodedToken.email ? `email_${decodedToken.email}` : decodedToken.uid);
-    const user = await db.user.findUnique({ where: { phone } });
+    const user = await getOrCreateUserFromToken(decodedToken);
     if (!user) {
        return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
@@ -67,8 +67,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: e.message }, { status: 401 })
     }
 
-    const phone = decodedToken.phone_number || (decodedToken.email ? `email_${decodedToken.email}` : decodedToken.uid);
-    const user = await db.user.findUnique({ where: { phone } });
+    const user = await getOrCreateUserFromToken(decodedToken);
     if (!user) {
        return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }

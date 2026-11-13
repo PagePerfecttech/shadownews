@@ -5,6 +5,7 @@ import { s3Client, R2_BUCKET, R2_PUBLIC_URL } from '@/lib/r2'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { processNewsApprovalEarning } from '@/lib/wallet-service'
 import { generateAINewsRewrite } from '@/lib/gemini-service'
+import { sendOneSignalNotification } from '@/lib/onesignal'
 
 import { applyWatermark } from '@/lib/watermark'
 import { generate5CharNewsId } from '@/lib/id-generator'
@@ -297,6 +298,23 @@ export async function POST(request: NextRequest) {
 
     if (reporter.canPublishDirectly) {
       await processNewsApprovalEarning(news.id, !!videoUrl)
+
+      // Send OneSignal push notification for published reporter news
+      try {
+        const isValidUrl = news.thumbnailUrl && news.thumbnailUrl.startsWith('http')
+        await sendOneSignalNotification({
+          title: news.title,
+          body: news.shortDesc || news.title,
+          imageUrl: isValidUrl ? news.thumbnailUrl : undefined,
+          data: {
+            route: `/p/${news.id}`,
+            newsId: news.id,
+            type: 'news_detail',
+          },
+        })
+      } catch (notifErr) {
+        console.warn('Failed to send OneSignal push notification for reporter news:', notifErr)
+      }
     }
 
     // Trigger async Gemini AI rewrite for professional headline & content suggestions
