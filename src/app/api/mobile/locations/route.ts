@@ -31,6 +31,19 @@ export async function GET() {
               select: {
                 id: true,
                 name: true,
+                villages: {
+                  where: {
+                    isActive: true,
+                    deletedAt: null,
+                  },
+                  orderBy: {
+                    name: 'asc',
+                  },
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
             assemblies: {
@@ -55,6 +68,19 @@ export async function GET() {
                   select: {
                     id: true,
                     name: true,
+                    villages: {
+                      where: {
+                        isActive: true,
+                        deletedAt: null,
+                      },
+                      orderBy: {
+                        name: 'asc',
+                      },
+                      select: {
+                        id: true,
+                        name: true,
+                      },
+                    },
                   },
                 },
               },

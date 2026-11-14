@@ -15,13 +15,11 @@ export interface YouTubeShortItem {
   channelTitle: string
 }
 
+export const OFFICIAL_CHANNEL_ID = 'UC4MFxsRwnB2EnPYu4Bpntxw'
+export const OFFICIAL_CHANNEL_HANDLE = '@ShadowNewsMedia'
+
 export const POPULAR_TELUGU_CHANNELS = [
-  { id: 'UC4MFxsRwnB2EnPYu4Bpntxw', handle: '@ShadowNewsMedia', name: 'Shadow News (Official)' },
-  { id: 'UCPXTXMecYqnRKNdqdVOGSFg', handle: '@TV9TeluguLive', name: 'TV9 Telugu Live' },
-  { id: 'UCZ9m4KOh8Ei60428xeGYDCQ', handle: '@sakshitv', name: 'Sakshi TV' },
-  { id: 'UCd_x_1Fk98Zg90H_y0GjNqQ', handle: '@ntvtelugunews', name: 'NTV Telugu' },
-  { id: 'UC4Z7m9T7y9jNqL2yqR4T7ug', handle: '@V6NewsTelugu', name: 'V6 News Telugu' },
-  { id: 'UCW4pU0M8T6yT5kK9rL7yQ1w', handle: '@abntelugutv', name: 'ABN Telugu' },
+  { id: OFFICIAL_CHANNEL_ID, handle: OFFICIAL_CHANNEL_HANDLE, name: 'Shadow News (Official)' },
 ]
 
 /**
@@ -316,6 +314,21 @@ export async function importYouTubeShortsFromChannel(
     }
   }
 
+  // Restrict YouTube channel import strictly to Shadow News Official channel
+  if (channelId !== OFFICIAL_CHANNEL_ID) {
+    console.warn(`[YouTube Import] Rejected non-official channel: ${channelId}`)
+    return {
+      success: false,
+      channelId,
+      importedCount: 0,
+      skippedCount: 0,
+      importedVideos: [],
+      error: `Import is restricted to official channel Shadow News (${OFFICIAL_CHANNEL_HANDLE}).`,
+    }
+  }
+
+  console.log(`[YouTube Import] Fetching up to ${limit} videos from official channel ${OFFICIAL_CHANNEL_HANDLE} (${channelId})...`)
+
   const items = await fetchYouTubeChannelVideos(channelId, limit)
   let importedCount = 0
   let skippedCount = 0
@@ -389,6 +402,7 @@ export async function autoImportYouTubeShorts(limitPerChannel: number = 3): Prom
   skippedCount: number
   importedVideos: Array<{ id: string; title: string; videoUrl: string }>
 }> {
+  console.log(`[YouTube Import Log] Starting auto-import for official channel ${OFFICIAL_CHANNEL_HANDLE}...`)
   let importedCount = 0
   let skippedCount = 0
   const importedVideos: Array<{ id: string; title: string; videoUrl: string }> = []
@@ -400,5 +414,6 @@ export async function autoImportYouTubeShorts(limitPerChannel: number = 3): Prom
     importedVideos.push(...res.importedVideos)
   }
 
+  console.log(`[YouTube Import Log] Complete. Imported: ${importedCount}, Skipped: ${skippedCount}`)
   return { importedCount, skippedCount, importedVideos }
 }
