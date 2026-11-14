@@ -5,6 +5,7 @@ import { logAudit, getClientIp } from '@/lib/audit'
 import { RawFeedItem, getFallbackImage } from '@/lib/feed-parser'
 import { processArticleWithAIAgent, AIProcessOptions } from '@/lib/feed-ai-agent'
 import { sendOneSignalNotification } from '@/lib/onesignal'
+import { generate5CharNewsId } from '@/lib/id-generator'
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,9 +76,12 @@ export async function POST(request: NextRequest) {
         const finalShortDesc = options.autoRewrite !== false ? processed.aiShortDesc : (item.description || item.title)
         const finalContent = options.autoRewrite !== false ? processed.aiContent : (item.content || item.description || item.title)
 
-        // Create News record
+        // Create News record with 5-character alphanumeric ID and shortCode
+        const newsId = await generate5CharNewsId()
         const createdNews = await db.news.create({
           data: {
+            id: newsId,
+            shortCode: newsId,
             title: finalTitle,
             shortDesc: finalShortDesc.substring(0, 500),
             content: finalContent,

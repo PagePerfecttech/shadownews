@@ -5,6 +5,7 @@ import { processArticleWithAIAgent } from '@/lib/feed-ai-agent'
 import { TELUGU_FEED_SOURCES } from '@/lib/feed-sources'
 import { sendOneSignalNotification } from '@/lib/onesignal'
 import { autoImportYouTubeShorts } from '@/lib/youtube-import'
+import { generate5CharNewsId } from '@/lib/id-generator'
 
 export async function GET(request: NextRequest) {
   return handleCron(request)
@@ -92,8 +93,11 @@ async function handleCron(request: NextRequest) {
 
           const finalThumb = thumbnail || getFallbackImage(processed.categorySlug)
 
+          const newsId = await generate5CharNewsId()
           const created = await db.news.create({
             data: {
+              id: newsId,
+              shortCode: newsId,
               title: processed.aiTitle || item.title,
               shortDesc: processed.aiShortDesc.substring(0, 500),
               content: processed.aiContent,

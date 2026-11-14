@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { generateRandomShortCode } from '@/lib/short-code'
 
 export async function GET(
   request: NextRequest,
@@ -47,9 +48,21 @@ export async function GET(
       },
     })
 
+    let code = news.shortCode
+    if (!code || code.trim() === '') {
+      if (news.id && news.id.length <= 5) {
+        code = news.id
+      } else {
+        code = generateRandomShortCode(5)
+        db.news.update({ where: { id: news.id }, data: { shortCode: code } }).catch(() => {})
+      }
+    }
+
     return NextResponse.json({
       news: {
         ...news,
+        shortCode: code,
+        short_code: code,
         imagesUrls: JSON.parse(news.imagesUrls || '[]'),
         categoryName: news.category?.name,
       },

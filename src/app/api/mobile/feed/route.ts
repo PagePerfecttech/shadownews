@@ -6,6 +6,7 @@ import { safeJsonParse } from '@/lib/json-utils'
 import { rankAndMixArticles } from '@/lib/recommendation-engine'
 import { getCache, setCache, getFeedCacheHeaders } from '@/lib/cache'
 import { injectAdsIntoFeedCards, getActiveCustomAds } from '@/lib/ad-engine'
+import { generateRandomShortCode } from '@/lib/short-code'
 
 const feedQuerySchema = z.object({
   village_id: z.string().cuid().optional(),
@@ -201,10 +202,20 @@ export async function GET(request: NextRequest) {
         name: reporterName,
         avatar: reporterAvatar || null,
       };
+      let code = item.shortCode;
+      if (!code || code.trim() === '') {
+        if (item.id && item.id.length <= 5) {
+          code = item.id;
+        } else {
+          code = generateRandomShortCode(5);
+          db.news.update({ where: { id: item.id }, data: { shortCode: code } }).catch(() => {});
+        }
+      }
+
       return {
         ...item,
-        shortCode: item.shortCode,
-        short_code: item.shortCode,
+        shortCode: code,
+        short_code: code,
         reporter: reporterObj,
         reporter_name: reporterName,
         reporter_image: reporterAvatar,

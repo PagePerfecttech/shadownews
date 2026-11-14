@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { Metadata } from 'next'
 import { safeJsonParse } from '@/lib/json-utils'
 
@@ -96,6 +96,11 @@ export default async function NewsPreviewPage({ params }: PageProps) {
 
   if (!news) {
     notFound()
+  }
+
+  // Canonical redirect from old long CUIDs to 5-char alphanumeric short code
+  if (id.length > 5 && news.shortCode && news.shortCode !== id) {
+    redirect(`/p/${news.shortCode}`)
   }
 
   const code = news.shortCode || id

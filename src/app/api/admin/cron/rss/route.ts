@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { fetchAndParseFeed, getFallbackImage, scrapeArticleOgImage } from '@/lib/feed-parser'
 import { processArticleWithAIAgent } from '@/lib/feed-ai-agent'
+import { generate5CharNewsId } from '@/lib/id-generator'
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,8 +61,11 @@ export async function GET(request: NextRequest) {
 
       const finalThumbnail = thumbnail || getFallbackImage(processed.categorySlug)
 
+      const newsId = await generate5CharNewsId()
       const created = await db.news.create({
         data: {
+          id: newsId,
+          shortCode: newsId,
           title: processed.aiTitle || item.title,
           shortDesc: processed.aiShortDesc.substring(0, 500),
           content: processed.aiContent,

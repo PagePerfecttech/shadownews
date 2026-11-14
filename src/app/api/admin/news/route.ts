@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
     const news = await db.news.create({
       data: {
         id: newsId,
+        shortCode: newsId,
         title: data.title || '',
         shortDesc: data.shortDesc || null,
         content: data.content || null,
