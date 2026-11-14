@@ -368,6 +368,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _buildDivider(),
 
                         _buildMenuItem(
+                          Icons.bookmark_outline_rounded,
+                          'Saved Stories (బుక్‌మార్క్‌లు)',
+                          subtitle: 'View your saved news stories',
+                          onTap: () => context.push('/bookmarks'),
+                        ),
+                        _buildDivider(),
+
+                        _buildMenuItem(
                           Icons.location_on_outlined,
                           'Change Location (ప్రాంతం మార్పు)',
                           subtitle: _userLocation ?? 'State, District & Mandal',

@@ -42,111 +42,7 @@ class NewsCard extends StatefulWidget {
     this.totalPages,
   });
 
-  @override
-  State<NewsCard> createState() => _NewsCardState();
-}
-
-class _NewsCardState extends State<NewsCard> {
-  late bool _isLiked;
-  late bool _isDisliked;
-  late bool _isBookmarked;
-  late int _likesCount;
-  late int _dislikesCount;
-  late int _commentsCount;
-
-  @override
-  void initState() {
-    super.initState();
-    _initStats();
-  }
-
-  @override
-  void didUpdateWidget(NewsCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.news['id'] != oldWidget.news['id']) {
-      _initStats();
-    }
-  }
-
-  void _initStats() {
-    final n = widget.news;
-    _isLiked = n['isLiked'] == true || n['liked'] == true;
-    _isDisliked = n['isDisliked'] == true || n['disliked'] == true;
-    _isBookmarked = n['isBookmarked'] == true || n['bookmarked'] == true;
-
-    final rawLikes = n['likesCount'] ?? n['likes'] ?? n['_count']?['reactions'] ?? 0;
-    _likesCount = int.tryParse(rawLikes.toString()) ?? 0;
-
-    final rawDislikes = n['dislikesCount'] ?? n['dislikes'] ?? 0;
-    _dislikesCount = int.tryParse(rawDislikes.toString()) ?? 0;
-
-    final rawComments = n['commentsCount'] ?? n['comments'] ?? n['_count']?['comments'] ?? 0;
-    _commentsCount = int.tryParse(rawComments.toString()) ?? 0;
-  }
-
-  String _resolveMediaUrl(String? rawUrl) {
-    if (rawUrl == null || rawUrl.isEmpty) return '';
-    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
-      return rawUrl;
-    }
-    final base = AppConfig.baseUrl.endsWith('/')
-        ? AppConfig.baseUrl.substring(0, AppConfig.baseUrl.length - 1)
-        : AppConfig.baseUrl;
-    final path = rawUrl.startsWith('/') ? rawUrl : '/$rawUrl';
-    return '$base$path';
-  }
-
-  String _formatTimeAgo(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return 'Just now';
-    try {
-      final date = DateTime.parse(dateStr);
-      final diff = DateTime.now().difference(date);
-      if (diff.inDays > 365) return '${(diff.inDays / 365).floor()}y ago';
-      if (diff.inDays > 30) return '${(diff.inDays / 30).floor()}mo ago';
-      if (diff.inDays > 0) return '${diff.inDays}d ago';
-      if (diff.inHours > 0) return '${diff.inHours}h ago';
-      if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
-      return 'Just now';
-    } catch (_) {
-      return 'Recently';
-    }
-  }
-
-  void _showLoginPrompt(BuildContext context, String message) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'లాగిన్ అవ్వండి (Login Required)',
-          style: GoogleFonts.notoSansTelugu(fontWeight: FontWeight.bold, fontSize: 17),
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.notoSansTelugu(fontSize: 14.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('రద్దు (Cancel)'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.go('/login');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD32F2F),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('లాగిన్ (Login)', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showFullNewsModal({
+  static void showFullNewsModal({
     required BuildContext context,
     required String title,
     required String shortDesc,
@@ -158,6 +54,10 @@ class _NewsCardState extends State<NewsCard> {
     required String categoryName,
     required String shortCode,
     required bool isDark,
+    VoidCallback? onWhatsAppShare,
+    VoidCallback? onBookmark,
+    bool isBookmarked = false,
+    VoidCallback? onCopyLink,
   }) {
     final List<String> paragraphs = fullContent
         .split(RegExp(r'\n+'))
@@ -412,7 +312,7 @@ class _NewsCardState extends State<NewsCard> {
                             child: ElevatedButton.icon(
                               onPressed: () {
                                 Navigator.pop(ctx);
-                                widget.onWhatsAppShare?.call();
+                                onWhatsAppShare?.call();
                               },
                               icon: const Icon(Icons.share, size: 16, color: Colors.white),
                               label: Text(
@@ -428,19 +328,27 @@ class _NewsCardState extends State<NewsCard> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          IconButton(
-                            icon: Icon(
-                              _isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                              color: _isBookmarked ? const Color(0xFFD32F2F) : (isDark ? Colors.white70 : Colors.black87),
+                          if (onBookmark != null)
+                            IconButton(
+                              icon: Icon(
+                                isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                                color: isBookmarked ? const Color(0xFFD32F2F) : (isDark ? Colors.white70 : Colors.black87),
+                              ),
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                onBookmark();
+                              },
+                              tooltip: 'Bookmark',
                             ),
-                            onPressed: () => _handleMoreOption('bookmark'),
-                            tooltip: 'Bookmark',
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.link_rounded, color: isDark ? Colors.white70 : Colors.black87),
-                            onPressed: () => _handleMoreOption('copy_link'),
-                            tooltip: 'Copy Link',
-                          ),
+                          if (onCopyLink != null)
+                            IconButton(
+                              icon: Icon(Icons.link_rounded, color: isDark ? Colors.white70 : Colors.black87),
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                onCopyLink();
+                              },
+                              tooltip: 'Copy Link',
+                            ),
                         ],
                       ),
                     ),
@@ -452,6 +360,142 @@ class _NewsCardState extends State<NewsCard> {
           ),
         ),
       ),
+    );
+  }
+
+  @override
+  State<NewsCard> createState() => _NewsCardState();
+}
+
+class _NewsCardState extends State<NewsCard> {
+  late bool _isLiked;
+  late bool _isDisliked;
+  late bool _isBookmarked;
+  late int _likesCount;
+  late int _dislikesCount;
+  late int _commentsCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _initStats();
+  }
+
+  @override
+  void didUpdateWidget(NewsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.news['id'] != oldWidget.news['id']) {
+      _initStats();
+    }
+  }
+
+  void _initStats() {
+    final n = widget.news;
+    _isLiked = n['isLiked'] == true || n['liked'] == true;
+    _isDisliked = n['isDisliked'] == true || n['disliked'] == true;
+    _isBookmarked = n['isBookmarked'] == true || n['bookmarked'] == true;
+
+    final rawLikes = n['likesCount'] ?? n['likes'] ?? n['_count']?['reactions'] ?? 0;
+    _likesCount = int.tryParse(rawLikes.toString()) ?? 0;
+
+    final rawDislikes = n['dislikesCount'] ?? n['dislikes'] ?? 0;
+    _dislikesCount = int.tryParse(rawDislikes.toString()) ?? 0;
+
+    final rawComments = n['commentsCount'] ?? n['comments'] ?? n['_count']?['comments'] ?? 0;
+    _commentsCount = int.tryParse(rawComments.toString()) ?? 0;
+  }
+
+  String _resolveMediaUrl(String? rawUrl) {
+    if (rawUrl == null || rawUrl.isEmpty) return '';
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return rawUrl;
+    }
+    final base = AppConfig.baseUrl.endsWith('/')
+        ? AppConfig.baseUrl.substring(0, AppConfig.baseUrl.length - 1)
+        : AppConfig.baseUrl;
+    final path = rawUrl.startsWith('/') ? rawUrl : '/$rawUrl';
+    return '$base$path';
+  }
+
+  String _formatTimeAgo(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return 'Just now';
+    try {
+      final date = DateTime.parse(dateStr);
+      final diff = DateTime.now().difference(date);
+      if (diff.inDays > 365) return '${(diff.inDays / 365).floor()}y ago';
+      if (diff.inDays > 30) return '${(diff.inDays / 30).floor()}mo ago';
+      if (diff.inDays > 0) return '${diff.inDays}d ago';
+      if (diff.inHours > 0) return '${diff.inHours}h ago';
+      if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
+      return 'Just now';
+    } catch (_) {
+      return 'Recently';
+    }
+  }
+
+  void _showLoginPrompt(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'లాగిన్ అవ్వండి (Login Required)',
+          style: GoogleFonts.notoSansTelugu(fontWeight: FontWeight.bold, fontSize: 17),
+        ),
+        content: Text(
+          message,
+          style: GoogleFonts.notoSansTelugu(fontSize: 14.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('రద్దు (Cancel)'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.go('/login');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD32F2F),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('లాగిన్ (Login)', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFullNewsModal({
+    required BuildContext context,
+    required String title,
+    required String shortDesc,
+    required String fullContent,
+    required String imageUrl,
+    required String locationName,
+    required String timeAgo,
+    required String reporterName,
+    required String categoryName,
+    required String shortCode,
+    required bool isDark,
+  }) {
+    NewsCard.showFullNewsModal(
+      context: context,
+      title: title,
+      shortDesc: shortDesc,
+      fullContent: fullContent,
+      imageUrl: imageUrl,
+      locationName: locationName,
+      timeAgo: timeAgo,
+      reporterName: reporterName,
+      categoryName: categoryName,
+      shortCode: shortCode,
+      isDark: isDark,
+      onWhatsAppShare: widget.onWhatsAppShare,
+      onBookmark: () => _handleMoreOption('bookmark'),
+      isBookmarked: _isBookmarked,
+      onCopyLink: () => _handleMoreOption('copy_link'),
     );
   }
 

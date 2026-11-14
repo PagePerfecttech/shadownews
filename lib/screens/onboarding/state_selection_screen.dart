@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:geolocator/geolocator.dart';
 
 import '../../api/api_client.dart';
 import '../../services/location_service.dart';
@@ -22,17 +21,7 @@ class _StateSelectionScreenState extends State<StateSelectionScreen> {
   @override
   void initState() {
     super.initState();
-    _checkPermissionAndAutoDetect();
     _fetchStates();
-  }
-
-  Future<void> _checkPermissionAndAutoDetect() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-        _handleAutoDetectLocation();
-      }
-    } catch (_) {}
   }
 
   Future<void> _handleAutoDetectLocation() async {
@@ -90,6 +79,15 @@ class _StateSelectionScreenState extends State<StateSelectionScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Color(0xFF1A1A1A),
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
         centerTitle: false,
         title: Text(
           'Select Your State',

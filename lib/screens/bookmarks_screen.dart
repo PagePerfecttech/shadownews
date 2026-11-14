@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../api/api_client.dart';
 
@@ -86,6 +87,12 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(12),
+                        onTap: () {
+                          final newsId = item['newsId']?.toString();
+                          if (newsId != null && newsId.isNotEmpty) {
+                            context.push('/feed', extra: {'newsId': newsId});
+                          }
+                        },
                         title: Text(
                           news['title'] ?? '',
                           style: GoogleFonts.poppins(

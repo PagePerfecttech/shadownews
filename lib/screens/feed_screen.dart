@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:go_router/go_router.dart';
 import '../config.dart';
 import '../api/api_client.dart';
 import '../api/cache_service.dart';
@@ -587,6 +589,7 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _logInteraction(String newsId, String type, {int value = 0}) async {
+    if (FirebaseAuth.instance.currentUser == null) return;
     try {
       await apiClient.post(
         '/user/interactions',
@@ -631,6 +634,255 @@ class _FeedScreenState extends State<FeedScreen> {
         : AppConfig.baseUrl;
     final path = raw.startsWith('/') ? raw : '/$raw';
     return '$base$path';
+  }
+
+  Widget _buildCompactNewsTile(dynamic item, int index, bool isDark) {
+    if (item is! Map) return const SizedBox.shrink();
+    final title = (item['title'] ?? '').toString();
+    final description = (item['short_desc'] ?? item['shortDesc'] ?? item['description'] ?? item['content'] ?? '').toString();
+    final fullContent = (item['full_content'] ?? item['fullContent'] ?? item['content'] ?? description).toString();
+    final imageUrl = _resolveNewsImageUrl(item);
+    final categoryName = (item['category'] is Map ? item['category']['name'] : item['category_name'])?.toString() ?? '';
+    final locationName = (item['location'] is Map ? item['location']['name'] : null)?.toString() ??
+        (item['district'] is Map ? item['district']['name'] : null)?.toString() ??
+        item['location_name']?.toString() ??
+        '';
+    final timeAgo = _timeAgo((item['publishedAt'] ?? item['created_at'] ?? item['createdAt'])?.toString());
+    final reporterName = (item['reporter'] is Map ? item['reporter']['name'] : null)?.toString() ??
+        item['reporter_name']?.toString() ??
+        item['author']?.toString() ??
+        '';
+    final shortCode = (item['shortCode'] ?? item['id'] ?? '').toString();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFE5E7EB),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            NewsCard.showFullNewsModal(
+              context: context,
+              title: title,
+              shortDesc: description,
+              fullContent: fullContent,
+              imageUrl: imageUrl,
+              locationName: locationName,
+              timeAgo: timeAgo,
+              reporterName: reporterName,
+              categoryName: categoryName,
+              shortCode: shortCode,
+              isDark: isDark,
+              onWhatsAppShare: () => _handleWhatsAppShare(item),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Category & Time Header Row
+                      Row(
+                        children: [
+                          if (categoryName.isNotEmpty) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD32F2F).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                categoryName,
+                                style: GoogleFonts.notoSansTelugu(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFFD32F2F),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          if (locationName.isNotEmpty) ...[
+                            Flexible(
+                              child: Text(
+                                locationName,
+                                style: GoogleFonts.notoSansTelugu(
+                                  fontSize: 11,
+                                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(
+                            timeAgo,
+                            style: GoogleFonts.poppins(
+                              fontSize: 10.5,
+                              color: isDark ? Colors.grey[400] : Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Title
+                      Text(
+                        title,
+                        style: GoogleFonts.notoSansTelugu(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF111827),
+                          height: 1.35,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Action row: "పూర్తి వివరాలు" button & WhatsApp share & Shorts jump
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF2A1C1C) : const Color(0xFFFFF1F1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFD32F2F).withValues(alpha: 0.35),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.menu_book_rounded,
+                                  size: 11,
+                                  color: Color(0xFFD32F2F),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'పూర్తి వివరాలు',
+                                  style: GoogleFonts.notoSansTelugu(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFFD32F2F),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Spacer(),
+
+                          // WhatsApp Share
+                          InkWell(
+                            onTap: () => _handleWhatsAppShare(item),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF25D366).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.share,
+                                    size: 12,
+                                    color: Color(0xFF25D366),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'వాట్సాప్',
+                                    style: GoogleFonts.notoSansTelugu(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF25D366),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+
+                          // Open in full shorts mode
+                          IconButton(
+                            icon: const Icon(
+                              Icons.fullscreen_rounded,
+                              size: 21,
+                              color: Color(0xFFD32F2F),
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: 'View in Full Shorts',
+                            onPressed: () {
+                              setState(() {
+                                _isListView = false;
+                              });
+                              if (_pageController.hasClients) {
+                                _pageController.jumpToPage(index);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                if (imageUrl.isNotEmpty) ...[
+                  const SizedBox(width: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      width: 95,
+                      height: 95,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        width: 95,
+                        height: 95,
+                        color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFEEEEEE),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        width: 95,
+                        height: 95,
+                        color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFEEEEEE),
+                        child: const Icon(Icons.image_not_supported_outlined, color: Colors.grey, size: 28),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _handleWhatsAppShare(Map<dynamic, dynamic> news) async {
@@ -1036,6 +1288,17 @@ class _FeedScreenState extends State<FeedScreen> {
                           ),
                         ),
 
+                        // Search News Button
+                        IconButton(
+                          icon: const Icon(
+                            Icons.search_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                          tooltip: 'Search News (శోధించండి)',
+                          onPressed: () => context.push('/search'),
+                        ),
+
                         // View Mode Toggle Button (Shorts vs List View showing 3-4 posts/screen)
                         IconButton(
                           icon: Icon(
@@ -1133,29 +1396,7 @@ class _FeedScreenState extends State<FeedScreen> {
                                             if (item['type'] == 'ad' || item['type'] == 'ad_slider' || item['type'] == 'admob_native') {
                                               return const SizedBox.shrink();
                                             }
-                                            return Container(
-                                              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                              decoration: BoxDecoration(
-                                                color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
-                                                borderRadius: BorderRadius.circular(12),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black.withValues(alpha: 0.05),
-                                                    blurRadius: 4,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: NewsCard(
-                                                news: item,
-                                                onTap: AppEvents.toggleBottomNav,
-                                                onShare: () => _handleShare(item),
-                                                onWhatsAppShare: () => _handleWhatsAppShare(item),
-                                                timeAgo: _timeAgo((item['publishedAt'] ?? item['created_at'] ?? item['createdAt'])?.toString()),
-                                                pageIndex: index + 1,
-                                                totalPages: _newsItems.length,
-                                              ),
-                                            );
+                                            return _buildCompactNewsTile(item, index, isDark);
                                           },
                                         )
                                       : PageView.builder(

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../api/api_client.dart';
@@ -326,6 +327,12 @@ class _SearchScreenState extends State<SearchScreen> {
                         ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.all(12),
+                          onTap: () {
+                            final id = item['id']?.toString();
+                            if (id != null && id.isNotEmpty) {
+                              context.push('/feed', extra: {'newsId': id});
+                            }
+                          },
                           leading: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: CachedNetworkImage(
