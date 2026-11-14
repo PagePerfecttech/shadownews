@@ -30,8 +30,8 @@ export default function Footer() {
             </p>
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <Mail className="w-3.5 h-3.5 text-red-500" />
-              <a href="mailto:admin@shadownews.in" className="hover:text-white transition-colors">
-                admin@shadownews.in
+              <a href="mailto:info@shadownews.in" className="hover:text-white transition-colors">
+                info@shadownews.in
               </a>
             </div>
           </div>
