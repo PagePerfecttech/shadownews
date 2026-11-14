@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../api/api_client.dart';
@@ -71,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _sendOtp() {
+  Future<void> _sendOtp() async {
     final phone = _phoneController.text.trim();
     if (phone.length != 10) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -80,6 +81,56 @@ class _LoginScreenState extends State<LoginScreen> {
           backgroundColor: Color(0xFFD32F2F),
         ),
       );
+      return;
+    }
+
+    final now = DateTime.now();
+    final todayKey = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    final prefs = await SharedPreferences.getInstance();
+    final countKey = 'otp_sent_count_${phone}_$todayKey';
+    final lastSentKey = 'otp_last_sent_time_$phone';
+
+    // 1. Check 60-second cooldown
+    final lastSentMillis = prefs.getInt(lastSentKey) ?? 0;
+    final secondsSinceLast = (now.millisecondsSinceEpoch - lastSentMillis) ~/ 1000;
+    if (secondsSinceLast < 60) {
+      final remaining = 60 - secondsSinceLast;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('దయచేసి వేచి ఉండండి: ఇంకా $remaining సెకన్లు ఆగి OTP పొందండి (Please wait $remaining seconds)'),
+            backgroundColor: Colors.orange.shade800,
+          ),
+        );
+      }
+      return;
+    }
+
+    // 2. Check daily limit (max 5 OTPs per phone per day to prevent quota exhaustion)
+    final sentCount = prefs.getInt(countKey) ?? 0;
+    if (sentCount >= 5) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(
+              'రోజువారీ OTP పరిమితి ముగిసింది',
+              style: GoogleFonts.notoSansTelugu(fontWeight: FontWeight.bold, fontSize: 17),
+            ),
+            content: Text(
+              'ఈ రోజు ఈ మొబైల్ నంబర్‌కు గరిష్ట OTP అభ్యర్థనలు (5) పూర్తయ్యాయి. దయచేసి రేపు ప్రయత్నించండి లేదా Google ఖాతాతో సైన్-ఇన్ చేయండి.\n\n(Daily OTP limit of 5 requests reached for this number. Please try tomorrow or sign in with Google).',
+              style: GoogleFonts.notoSansTelugu(fontSize: 14),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD32F2F)),
+                child: const Text('సరే (OK)', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+      }
       return;
     }
 
@@ -102,7 +153,9 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       },
-      onCodeSent: (verificationId) {
+      onCodeSent: (verificationId) async {
+        await prefs.setInt(countKey, sentCount + 1);
+        await prefs.setInt(lastSentKey, DateTime.now().millisecondsSinceEpoch);
         if (mounted) {
           setState(() => _isLoading = false);
           context.push('/otp', extra: verificationId);
