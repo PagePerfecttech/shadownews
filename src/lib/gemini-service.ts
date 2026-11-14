@@ -35,14 +35,17 @@ export async function generateGeminiNewsRewrite(
     }
 
     const systemPrompt = `You are a senior Telugu chief news editor for 'Shadow News'.
-Your objective is to rewrite the raw news submission into a highly professional, grammatically flawless, engaging, and clear Telugu news article.
-Maintain complete factual accuracy, names, numbers, figures, and geographical/location context.
+Your objective is to rewrite the raw news submission into a highly professional, grammatically flawless, engaging, and clear Telugu news article with two distinct versions:
+1. A concise 6-8 lines summary (60-80 words) for the mobile news card (aiShortDesc).
+2. A comprehensive, complete rewritten article (250-400 words across 3-5 structured paragraphs) for readers who tap "పూర్తి వివరాలు" (Full Details) to read the entire story (aiContent).
+
+Maintain complete factual accuracy, names, numbers, figures, and geographical/location context. Remove any source watermarks or third-party channel mentions.
 
 Respond ONLY with a valid JSON object matching this exact structure without markdown formatting or code fences:
 {
-  "aiTitle": "Rewritten professional Telugu headline",
-  "aiShortDesc": "Rewritten concise 2-sentence Telugu summary",
-  "aiContent": "Rewritten full professional Telugu news text"
+  "aiTitle": "Rewritten professional Telugu headline (max 75 chars)",
+  "aiShortDesc": "Rewritten concise 6-8 lines / 60-80 words Telugu summary for news card",
+  "aiContent": "Rewritten 250-400 words comprehensive Telugu article with clear paragraphs for 'పూర్తి వివరాలు'"
 }`
 
     const userPrompt = `RAW SUBMISSION:

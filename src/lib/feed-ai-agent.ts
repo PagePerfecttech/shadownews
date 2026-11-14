@@ -535,21 +535,23 @@ export function generateLocalTeluguShortNews(raw: RawFeedItem): {
     cleanTitle = cleanTitle.substring(0, 78) + '...'
   }
 
-  // Build clean 60-80 words summary from description or content
+  // Build clean 6-8 lines (60-80 words) summary from description or content
   let body = (raw.description || raw.content || raw.title).trim()
   body = body.replace(/https?:\/\/\S+/g, '') // remove urls
   body = body.replace(/(?:ఈనాడు|సాక్షి|టీవీ9|ఏబీపీ).+?ప్రత్యేక కథనం/g, '')
 
   const sentences = body.split(/[.!?।]+/).map(s => s.trim()).filter(Boolean)
-  let shortDesc = sentences.slice(0, 3).join('. ') + '.'
+  let shortDesc = sentences.slice(0, 4).join('. ') + '.'
   if (shortDesc.length < 50 && raw.content) {
-    shortDesc = raw.content.substring(0, 200).trim() + '...'
+    shortDesc = raw.content.substring(0, 280).trim() + '...'
   }
+
+  const fullContent = (raw.content || raw.description || raw.title).trim()
 
   return {
     aiTitle: cleanTitle,
-    aiShortDesc: shortDesc.substring(0, 350),
-    aiContent: (raw.content || raw.description || raw.title).trim(),
+    aiShortDesc: shortDesc.substring(0, 400),
+    aiContent: fullContent,
   }
 }
 
@@ -607,10 +609,10 @@ export async function processArticleWithAIAgent(
       const systemPrompt = `You are the Lead Telugu News Editor & AI Assistant for 'Shadow News' (షాడో న్యూస్), a hyperlocal mobile short news app for Telangana and Andhra Pradesh.
 
 TASK:
-1. Transform raw Telugu news into a crisp, engaging, objective "Short News" card (similar to Inshorts / Way2News).
+1. Transform raw Telugu news into a crisp, engaging, objective "Short News" card with full reader detail support (similar to Inshorts / Way2News).
 2. Rewrite the headline into an eye-catching, factual Telugu title (MAX 75 CHARACTERS).
-3. Condense the summary into 60-80 words in professional, modern Telugu covering: Who, What, Where, When, and Why. Remove all source watermarks/branding (e.g., "సాక్షి ప్రతినిధి", "టీవీ9", "ఈనాడు", etc.).
-4. Provide a full 150-220 words formatted Telugu article.
+3. Condense the summary into 6-8 lines (60-80 words) in professional, modern Telugu covering: Who, What, Where, When, and Why. Remove all source watermarks/branding (e.g., "సాక్షి ప్రతినిధి", "టీవీ9", "ఈనాడు", etc.). This is the short summary (aiShortDesc) that readers read at a glance on the news card.
+4. Provide a full, in-depth rewritten Telugu news article (aiContent, 250-400 words across 3 to 5 well-structured paragraphs with background, quotes/statements, step-by-step chronology, and significance). This complete article will be displayed when readers tap the "పూర్తి వివరాలు" (Full Details) button so they can read the complete news story.
 5. Identify the single best Category from this exact list: [${categorySlugs}].
 6. Identify the Location:
    - State code: "TG" (Telangana), "AP" (Andhra Pradesh), or "ALL" (National/International).
@@ -621,8 +623,8 @@ TASK:
 Respond ONLY with a valid JSON object matching this schema without markdown fences:
 {
   "aiTitle": "క్రిస్ప్ తెలుగు హెడ్‌లైన్ (max 75 chars)",
-  "aiShortDesc": "60-80 పదాల షార్ట్ న్యూస్ సారాంశం",
-  "aiContent": "150-220 పదాల పూర్తి వివరాలతో కూడిన వ్యాసం",
+  "aiShortDesc": "6-8 లైన్లు / 60-80 పదాల షార్ట్ న్యూస్ సారాంశం (Summary)",
+  "aiContent": "250-400 పదాల పూర్తి వివరాలతో కూడిన సమగ్ర వ్యాసం (Complete in-depth rewritten article with paragraphs for 'పూర్తి వివరాలు')",
   "categorySlug": "one of the allowed slugs",
   "stateCode": "TG | AP | ALL",
   "districtName": "Exact district English name from list or null",
