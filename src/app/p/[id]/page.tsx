@@ -139,14 +139,6 @@ export default async function NewsPreviewPage({ params }: PageProps) {
                 alt={news.title}
                 className="w-full h-full object-cover"
               />
-              {/* Subtle Brand Watermark */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
-                <img
-                  src="/logo.png"
-                  alt="Watermark"
-                  className="w-32 h-32 object-contain"
-                />
-              </div>
               {/* Category Pill Overlay */}
               {news.category?.name && (
                 <span className="absolute top-3 left-3 bg-red-600/90 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full backdrop-blur-sm shadow">
