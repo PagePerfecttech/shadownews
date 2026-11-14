@@ -119,6 +119,7 @@ export async function GET(request: NextRequest) {
 
     const selectFields = {
       id: true,
+      shortCode: true,
       title: true,
       shortDesc: true,
       thumbnailUrl: true,

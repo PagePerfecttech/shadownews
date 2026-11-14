@@ -8,8 +8,15 @@ export async function GET(
   try {
     const { id } = await params
 
-    const news = await db.news.findUnique({
-      where: { id, status: 'published', deletedAt: null },
+    const news = await db.news.findFirst({
+      where: {
+        OR: [
+          { id },
+          { shortCode: id },
+        ],
+        status: 'published',
+        deletedAt: null,
+      },
       include: {
         category: true,
         state: { select: { name: true } },

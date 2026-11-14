@@ -44,12 +44,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description: cleanDescription,
     metadataBase: new URL(baseUrl),
     alternates: {
-      canonical: `${baseUrl}/p/${id}`,
+      canonical: `${baseUrl}/p/${news.shortCode || id}`,
     },
     openGraph: {
       title: news.title,
       description: cleanDescription,
-      url: `${baseUrl}/p/${id}`,
+      url: `${baseUrl}/p/${news.shortCode || id}`,
       type: 'article',
       siteName: 'Shadow News',
       locale: 'te_IN',
@@ -213,7 +213,7 @@ export default async function NewsPreviewPage({ params }: PageProps) {
             var isAndroid = /Android/i.test(navigator.userAgent);
             var btn = document.getElementById('open-app-btn');
             if (isAndroid) {
-              var intentUrl = "intent://m.shadownews.in/p/${id}#Intent;scheme=https;package=com.shadownews.app;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.shadownews.app;end";
+              var intentUrl = "intent://m.shadownews.in/p/${news.shortCode || id}#Intent;scheme=https;package=com.shadownews.app;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.shadownews.app;end";
               if (btn) btn.href = intentUrl;
               setTimeout(function() {
                 window.location.href = intentUrl;

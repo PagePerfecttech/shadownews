@@ -1,11 +1,12 @@
 import { db } from './db'
 
-const ALPHABET = '23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ' // Base56, excludes ambiguous 0, O, 1, l, I
+// 62-character standard alphanumeric charset [A-Z, a-z, 0-9]
+const ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 /**
- * Generate a random 4-character alphanumeric short code
+ * Generate a random 5-character alphanumeric short code
  */
-export function generateRandomShortCode(length: number = 4): string {
+export function generateRandomShortCode(length: number = 5): string {
   let result = ''
   for (let i = 0; i < length; i++) {
     result += ALPHABET.charAt(Math.floor(Math.random() * ALPHABET.length))
@@ -14,10 +15,10 @@ export function generateRandomShortCode(length: number = 4): string {
 }
 
 /**
- * Generate a guaranteed unique 4-character short code for a news item
+ * Generate a guaranteed unique 5-character short code for a news item
  */
-export async function getUniqueShortCode(length: number = 4): Promise<string> {
-  for (let attempt = 0; attempt < 20; attempt++) {
+export async function getUniqueShortCode(length: number = 5): Promise<string> {
+  for (let attempt = 0; attempt < 30; attempt++) {
     const code = generateRandomShortCode(length)
     const existing = await db.news.findUnique({
       where: { shortCode: code },
@@ -27,6 +28,5 @@ export async function getUniqueShortCode(length: number = 4): Promise<string> {
       return code
     }
   }
-  // Fallback to 5 chars if 4-char space ever collides heavily
-  return generateRandomShortCode(5)
+  return generateRandomShortCode(length)
 }
