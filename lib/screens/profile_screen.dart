@@ -263,357 +263,386 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final isGuest = user == null;
-    const bgColor = Color(0xFFF2F1ED);
-    const primaryColor = Color(0xFFB71C1C);
+    return ListenableBuilder(
+      listenable: globalThemeProvider,
+      builder: (context, _) {
+        final bool isDark = Theme.of(context).brightness == Brightness.dark || globalThemeProvider.isDarkMode;
+        final user = FirebaseAuth.instance.currentUser;
+        final isGuest = user == null;
+        final bgColor = isDark ? const Color(0xFF121212) : const Color(0xFFF2F1ED);
+        final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+        final primaryColor = const Color(0xFFB71C1C);
+        final titleColor = isDark ? Colors.white : Colors.black;
 
-    final displayName = _userName ?? (user?.displayName?.isNotEmpty == true ? user!.displayName! : (_userPhone ?? 'Shadow News Reader'));
+        final displayName = _userName ?? (user?.displayName?.isNotEmpty == true ? user!.displayName! : (_userPhone ?? 'Shadow News Reader'));
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Custom App Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
-                      onPressed: () {
-                        context.go('/feed');
-                      },
-                    ),
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        'Profile & Settings',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
+        return Scaffold(
+          backgroundColor: bgColor,
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Custom App Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF242424) : Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black, size: 20),
+                          onPressed: () {
+                            context.go('/feed');
+                          },
                         ),
                       ),
-                    ),
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            'Profile & Settings',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: titleColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 40),
+                    ],
                   ),
-                  const SizedBox(width: 40),
-                ],
-              ),
-            ),
+                ),
 
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                children: [
-                  // Profile Banner
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                    decoration: BoxDecoration(
-                      color: primaryColor,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryColor.withValues(alpha: 0.25),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    children: [
+                      // Profile Banner
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                        decoration: BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: primaryColor.withValues(alpha: 0.25),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                            color: Colors.white.withValues(alpha: 0.15),
-                          ),
-                          child: ClipOval(
-                            child: _userAvatar != null && _userAvatar!.isNotEmpty
-                                ? CachedNetworkImage(
-                                    imageUrl: _userAvatar!,
-                                    fit: BoxFit.cover,
-                                    errorWidget: (context, url, error) => const Icon(Icons.person, color: Colors.white, size: 40),
-                                  )
-                                : const Icon(Icons.person, color: Colors.white, size: 40),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isGuest ? 'Guest User' : displayName,
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                                color: Colors.white.withValues(alpha: 0.15),
                               ),
-                              if (_userLocation != null) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  _userLocation!,
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white.withValues(alpha: 0.85),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 10),
-                              Row(
+                              child: ClipOval(
+                                child: _userAvatar != null && _userAvatar!.isNotEmpty
+                                    ? CachedNetworkImage(
+                                        imageUrl: _userAvatar!,
+                                        fit: BoxFit.cover,
+                                        errorWidget: (context, url, error) => const Icon(Icons.person, color: Colors.white, size: 40),
+                                      )
+                                    : const Icon(Icons.person, color: Colors.white, size: 40),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (!isGuest) ...[
-                                    InkWell(
-                                      onTap: () async {
-                                        await context.push('/edit-profile');
-                                        _loadUserData();
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Text(
-                                              'Edit Profile',
-                                              style: GoogleFonts.poppins(
-                                                color: primaryColor,
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            const Icon(Icons.edit, color: primaryColor, size: 13),
-                                          ],
-                                        ),
+                                  Text(
+                                    isGuest ? 'Guest User' : displayName,
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (_userLocation != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _userLocation!,
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white.withValues(alpha: 0.85),
+                                        fontSize: 11,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
                                   ],
-                                  InkWell(
-                                    onTap: () async {
-                                      if (isGuest) {
-                                        final prefs = await SharedPreferences.getInstance();
-                                        await prefs.remove('is_guest');
-                                        try {
-                                          await FirebaseAuth.instance.signOut();
-                                        } catch (_) {}
-                                        if (context.mounted) {
-                                          context.go('/login');
-                                        }
-                                      } else {
-                                        _logout();
-                                      }
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        isGuest ? 'Sign In' : 'Sign Out',
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 12,
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      if (!isGuest) ...[
+                                        InkWell(
+                                          onTap: () async {
+                                            await context.push('/edit-profile');
+                                            _loadUserData();
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Text(
+                                                  'Edit Profile',
+                                                  style: GoogleFonts.poppins(
+                                                    color: primaryColor,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Icon(Icons.edit, color: primaryColor, size: 13),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      InkWell(
+                                        onTap: () async {
+                                          if (isGuest) {
+                                            final prefs = await SharedPreferences.getInstance();
+                                            await prefs.remove('is_guest');
+                                            try {
+                                              await FirebaseAuth.instance.signOut();
+                                            } catch (_) {}
+                                            if (context.mounted) {
+                                              context.go('/login');
+                                            }
+                                          } else {
+                                            _logout();
+                                          }
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(alpha: 0.2),
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: Text(
+                                            isGuest ? 'Sign In' : 'Sign Out',
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 12,
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                    ),
+                                    ],
                                   ),
                                 ],
                               ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Settings Menu List
+                      Container(
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03), blurRadius: 8, offset: const Offset(0, 2)),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            if (!isGuest) ...[
+                              _buildMenuItem(
+                                Icons.person_outline,
+                                'Edit Profile (ప్రొఫైల్ సవరణ)',
+                                subtitle: 'Name, photo, email, gender & DOB',
+                                isDark: isDark,
+                                onTap: () async {
+                                  await context.push('/edit-profile');
+                                  _loadUserData();
+                                },
+                              ),
+                              _buildDivider(isDark),
                             ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
 
-                  const SizedBox(height: 20),
+                            _buildMenuItem(
+                              Icons.notifications_outlined,
+                              'Notifications (నోటిఫికేషన్లు)',
+                              subtitle: 'Breaking news, district alerts, quiet hours',
+                              isDark: isDark,
+                              onTap: () => context.push('/settings/notifications'),
+                            ),
+                            _buildDivider(isDark),
 
-                  // Settings Menu List
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        if (!isGuest) ...[
-                          _buildMenuItem(
-                            Icons.person_outline,
-                            'Edit Profile (ప్రొఫైల్ సవరణ)',
-                            subtitle: 'Name, photo, email, gender & DOB',
-                            onTap: () async {
-                              await context.push('/edit-profile');
-                              _loadUserData();
-                            },
-                          ),
-                          _buildDivider(),
-                        ],
+                            _buildMenuItem(
+                              Icons.bookmark_outline_rounded,
+                              'Saved Stories (బుక్‌మార్క్‌లు)',
+                              subtitle: 'View your saved news stories',
+                              isDark: isDark,
+                              onTap: () => context.push('/bookmarks'),
+                            ),
+                            _buildDivider(isDark),
 
-                        _buildMenuItem(
-                          Icons.notifications_outlined,
-                          'Notifications (నోటిఫికేషన్లు)',
-                          subtitle: 'Breaking news, district alerts, quiet hours',
-                          onTap: () => context.push('/settings/notifications'),
-                        ),
-                        _buildDivider(),
+                            _buildMenuItem(
+                              Icons.location_on_outlined,
+                              'Change Location (ప్రాంతం మార్పు)',
+                              subtitle: _userLocation ?? 'State, District & Mandal',
+                              isDark: isDark,
+                              onTap: () => context.push('/onboarding/state'),
+                            ),
+                            _buildDivider(isDark),
 
-                        _buildMenuItem(
-                          Icons.bookmark_outline_rounded,
-                          'Saved Stories (బుక్‌మార్క్‌లు)',
-                          subtitle: 'View your saved news stories',
-                          onTap: () => context.push('/bookmarks'),
-                        ),
-                        _buildDivider(),
-
-                        _buildMenuItem(
-                          Icons.location_on_outlined,
-                          'Change Location (ప్రాంతం మార్పు)',
-                          subtitle: _userLocation ?? 'State, District & Mandal',
-                          onTap: () => context.push('/onboarding/state'),
-                        ),
-                        _buildDivider(),
-
-                        _buildMenuItem(
-                          Icons.translate,
-                          'App Language (భాష)',
-                          subtitle: 'తెలుగు / English',
-                          onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: Text('Select Language / భాష', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    ListTile(
-                                      title: Text('తెలుగు (Telugu)', style: GoogleFonts.poppins()),
-                                      onTap: () async {
-                                        final prefs = await SharedPreferences.getInstance();
-                                        await prefs.setString('preferred_language', 'te');
-                                        if (ctx.mounted) Navigator.pop(ctx);
-                                      },
+                            _buildMenuItem(
+                              Icons.translate,
+                              'App Language (భాష)',
+                              subtitle: 'తెలుగు / English',
+                              isDark: isDark,
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: Text('Select Language / భాష', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+                                    content: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ListTile(
+                                          title: Text('తెలుగు (Telugu)', style: GoogleFonts.poppins()),
+                                          onTap: () async {
+                                            final prefs = await SharedPreferences.getInstance();
+                                            await prefs.setString('preferred_language', 'te');
+                                            if (ctx.mounted) Navigator.pop(ctx);
+                                          },
+                                        ),
+                                        ListTile(
+                                          title: Text('English', style: GoogleFonts.poppins()),
+                                          onTap: () async {
+                                            final prefs = await SharedPreferences.getInstance();
+                                            await prefs.setString('preferred_language', 'en');
+                                            if (ctx.mounted) Navigator.pop(ctx);
+                                          },
+                                        ),
+                                      ],
                                     ),
-                                    ListTile(
-                                      title: Text('English', style: GoogleFonts.poppins()),
-                                      onTap: () async {
-                                        final prefs = await SharedPreferences.getInstance();
-                                        await prefs.setString('preferred_language', 'en');
-                                        if (ctx.mounted) Navigator.pop(ctx);
-                                      },
-                                    ),
-                                  ],
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildDivider(isDark),
+
+                            _buildMenuItem(
+                              Icons.format_size,
+                              'Reading Text Size',
+                              subtitle: _textSize,
+                              isDark: isDark,
+                              onTap: _showTextSizeDialog,
+                            ),
+                            _buildDivider(isDark),
+
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                              leading: Icon(
+                                isDark ? Icons.dark_mode : Icons.dark_mode_outlined,
+                                color: isDark ? Colors.amber.shade400 : Colors.grey.shade600,
+                                size: 24,
+                              ),
+                              title: Text(
+                                'Dark Mode',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: isDark ? Colors.white : const Color(0xFF333333),
                                 ),
                               ),
-                            );
-                          },
+                              trailing: Switch(
+                                value: globalThemeProvider.isDarkMode,
+                                activeThumbColor: primaryColor,
+                                onChanged: (v) async {
+                                  await globalThemeProvider.setDarkMode(v);
+                                  setState(() {});
+                                },
+                              ),
+                            ),
+                            _buildDivider(isDark),
+
+                            _buildMenuItem(Icons.grid_view, 'Categories (వర్గాలు)', isDark: isDark, onTap: () => context.push('/discovery')),
+                            _buildDivider(isDark),
+
+                            if (_reporterStatus == ReporterStatus.active) ...[
+                              _buildMenuItem(
+                                Icons.account_balance_wallet_outlined,
+                                'Wallet & Earnings (వాలెట్ & సంపాదన)',
+                                subtitle: 'View earnings and withdrawal history',
+                                isDark: isDark,
+                                onTap: () => context.push('/reporter/wallet'),
+                              ),
+                              _buildDivider(isDark),
+                              _buildMenuItem(
+                                Icons.menu_book_outlined,
+                                'Reporter Guidelines (ప్రమోషన్ పాలసీ)',
+                                isDark: isDark,
+                                onTap: () => context.push('/reporter-guidelines'),
+                              ),
+                              _buildDivider(isDark),
+                            ],
+
+                            _buildMenuItem(Icons.gavel_outlined, 'Terms & Conditions (నిబంధనలు)', isDark: isDark, onTap: () => context.push('/terms-conditions')),
+                            _buildDivider(isDark),
+
+                            _buildMenuItem(
+                              Icons.star_rate_rounded,
+                              'Rate the App (యాప్‌ను రేట్ చేయండి)',
+                              subtitle: 'Share your feedback or review on Google Play',
+                              isDark: isDark,
+                              iconColor: const Color(0xFFF59E0B),
+                              onTap: () => InAppReviewService.instance.showRatingPrompt(context, isManual: true),
+                            ),
+                            _buildDivider(isDark),
+
+                            _buildMenuItem(Icons.privacy_tip_outlined, 'Privacy Policy (గోప్యతా విధానం)', isDark: isDark, onTap: () => context.push('/privacy-policy')),
+                            _buildDivider(isDark),
+
+                            _buildMenuItem(Icons.help_outline, 'Support & Contact Us', subtitle: 'info@shadownews.in', isDark: isDark, onTap: () => context.push('/contact-us')),
+
+                            if (!isGuest) ...[
+                              _buildDivider(isDark),
+                              _buildMenuItem(
+                                Icons.delete_forever_outlined,
+                                'Delete Account (ఖాతా తొలగింపు)',
+                                subtitle: 'Permanently remove your account and data',
+                                isDark: isDark,
+                                textColor: Colors.red.shade400,
+                                iconColor: Colors.red.shade400,
+                                onTap: _deleteAccount,
+                              ),
+                            ],
+                          ],
                         ),
-                        _buildDivider(),
+                      ),
 
-                        _buildMenuItem(
-                          Icons.format_size,
-                          'Reading Text Size',
-                          subtitle: _textSize,
-                          onTap: _showTextSizeDialog,
-                        ),
-                        _buildDivider(),
-
-                        ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                          leading: Icon(Icons.dark_mode_outlined, color: Colors.grey.shade600, size: 24),
-                          title: Text('Dark Mode', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w500)),
-                          trailing: Switch(
-                            value: globalThemeProvider.isDarkMode,
-                            activeThumbColor: primaryColor,
-                            onChanged: (v) async {
-                              await globalThemeProvider.setDarkMode(v);
-                              setState(() {});
-                            },
-                          ),
-                        ),
-                        _buildDivider(),
-
-                        _buildMenuItem(Icons.grid_view, 'Categories (వర్గాలు)', onTap: () => context.push('/discovery')),
-                        _buildDivider(),
-
-                        if (_reporterStatus == ReporterStatus.active) ...[
-                          _buildMenuItem(
-                            Icons.account_balance_wallet_outlined,
-                            'Wallet & Earnings (వాలెట్ & సంపాదన)',
-                            subtitle: 'View earnings and withdrawal history',
-                            onTap: () => context.push('/reporter/wallet'),
-                          ),
-                          _buildDivider(),
-                          _buildMenuItem(
-                            Icons.menu_book_outlined,
-                            'Reporter Guidelines (ప్రమోషన్ పాలసీ)',
-                            onTap: () => context.push('/reporter-guidelines'),
-                          ),
-                          _buildDivider(),
-                        ],
-
-                        _buildMenuItem(Icons.gavel_outlined, 'Terms & Conditions (నిబంధనలు)', onTap: () => context.push('/terms-conditions')),
-                        _buildDivider(),
-
-                        _buildMenuItem(
-                          Icons.star_rate_rounded,
-                          'Rate the App (యాప్‌ను రేట్ చేయండి)',
-                          subtitle: 'Share your feedback or review on Google Play',
-                          iconColor: const Color(0xFFF59E0B),
-                          onTap: () => InAppReviewService.instance.showRatingPrompt(context, isManual: true),
-                        ),
-                        _buildDivider(),
-
-                        _buildMenuItem(Icons.privacy_tip_outlined, 'Privacy Policy (గోప్యతా విధానం)', onTap: () => context.push('/privacy-policy')),
-                        _buildDivider(),
-
-                        _buildMenuItem(Icons.help_outline, 'Support & Contact Us', subtitle: 'info@shadownews.in', onTap: () => context.push('/contact-us')),
-
-                        if (!isGuest) ...[
-                          _buildDivider(),
-                          _buildMenuItem(
-                            Icons.delete_forever_outlined,
-                            'Delete Account (ఖాతా తొలగింపు)',
-                            subtitle: 'Permanently remove your account and data',
-                            textColor: Colors.red.shade700,
-                            iconColor: Colors.red.shade700,
-                            onTap: _deleteAccount,
-                          ),
-                        ],
-                      ],
-                    ),
+                      const SizedBox(height: 32),
+                    ],
                   ),
-
-                  const SizedBox(height: 32),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -624,14 +653,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     VoidCallback? onTap,
     Color? textColor,
     Color? iconColor,
+    bool isDark = false,
   }) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      leading: Icon(icon, color: iconColor ?? Colors.grey.shade600, size: 24),
+      leading: Icon(icon, color: iconColor ?? (isDark ? Colors.grey.shade400 : Colors.grey.shade600), size: 24),
       title: Text(
         title,
         style: GoogleFonts.poppins(
-          color: textColor ?? const Color(0xFF333333),
+          color: textColor ?? (isDark ? Colors.white : const Color(0xFF333333)),
           fontSize: 15,
           fontWeight: FontWeight.w500,
         ),
@@ -641,16 +671,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.only(top: 2.0),
               child: Text(
                 subtitle,
-                style: GoogleFonts.poppins(color: Colors.grey.shade500, fontSize: 12),
+                style: GoogleFonts.poppins(color: isDark ? Colors.grey.shade400 : Colors.grey.shade500, fontSize: 12),
               ),
             )
           : null,
-      trailing: Icon(Icons.arrow_forward_ios, color: Colors.grey.shade400, size: 14),
+      trailing: Icon(Icons.arrow_forward_ios, color: isDark ? Colors.grey.shade600 : Colors.grey.shade400, size: 14),
       onTap: onTap,
     );
   }
 
-  Widget _buildDivider() {
-    return Divider(height: 1, thickness: 1, color: Colors.grey.shade100, indent: 20, endIndent: 20);
+  Widget _buildDivider([bool isDark = false]) {
+    return Divider(height: 1, thickness: 1, color: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade100, indent: 20, endIndent: 20);
   }
 }

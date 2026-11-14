@@ -298,17 +298,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     const primaryColor = Color(0xFFB71C1C);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF7F7F7);
+    final cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final titleColor = isDark ? Colors.white : Colors.black;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
         title: Text(
           'Edit Profile',
-          style: GoogleFonts.poppins(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
+          style: GoogleFonts.poppins(color: titleColor, fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: cardBg,
         elevation: 0.5,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: titleColor),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: primaryColor))
@@ -329,7 +333,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(color: primaryColor, width: 2.5),
-                              color: Colors.grey.shade200,
+                              color: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade200,
                             ),
                             child: ClipOval(
                               child: _localAvatarFile != null
@@ -365,7 +369,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Tap to change photo',
-                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
+                      style: GoogleFonts.poppins(fontSize: 12, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
                     ),
 
                     const SizedBox(height: 24),
@@ -374,11 +378,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: cardBg,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
+                            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
