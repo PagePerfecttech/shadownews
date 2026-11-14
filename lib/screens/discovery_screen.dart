@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_client.dart';
 import '../utils/short_code_util.dart';
 import '../widgets/share_card.dart';
-import '../widgets/native_ad_widget.dart';
+import '../widgets/custom_ad_widget.dart';
+import '../widgets/ad_slider_widget.dart';
+import '../widgets/admob_native_widget.dart';
 import '../services/ad_manager.dart';
 import '../widgets/news_card.dart';
 
@@ -90,13 +92,21 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   }
 
   void _selectCategory(Map<dynamic, dynamic> category) {
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(0);
+    }
     setState(() {
       _selectedCategory = category;
+      _newsItems = [];
+      _isLoadingFeed = true;
     });
     _fetchCategoryNews(refresh: true);
   }
 
   void _clearCategory() {
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(0);
+    }
     setState(() {
       _selectedCategory = null;
       _newsItems = [];
@@ -148,8 +158,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
       }
 
       final response = await apiClient.get(url);
-      final feedData = response.data['feed'] as List;
-      final total = response.data['total'] as int? ?? 0;
+      final feedData = (response.data != null && response.data['feed'] is List)
+          ? response.data['feed'] as List
+          : [];
+      final total = response.data?['total'] as int? ?? 0;
 
       // Handle Fallback if no news found on first page
       if (feedData.isEmpty && _currentPage == 1 && retryLevel < 3) {
@@ -165,32 +177,66 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
       _currentRetryLevel = retryLevel;
 
       final newItems = feedData.map((item) {
-        if (item['type'] == 'ad' || item['type'] == 'admob_native') {
-          return item is Map ? Map<String, dynamic>.from(item) : {'type': 'admob_native'};
+        if (item is! Map) return null;
+        if (item['type'] == 'ad' || item['type'] == 'custom_ad') {
+          return Map<String, dynamic>.from(item);
+        } else if (item['type'] == 'admob_native') {
+          return {'type': 'admob_native'};
+        } else if (item['type'] == 'ad_slider') {
+          return {
+            'type': 'ad_slider',
+            'ads': item['ads'] is List ? item['ads'] : [],
+          };
         }
-        final news = item['news'];
+
+        final news = item['news'] ?? (item['title'] != null ? item : null);
         if (news == null) return null;
+
+        final rawTags = news['tags'];
+        List<String> parsedTags = [];
+        if (rawTags is List) {
+          for (var t in rawTags) {
+            if (t is Map) {
+              final name = t['tag']?['name']?.toString() ?? t['name']?.toString();
+              if (name != null && name.isNotEmpty) parsedTags.add(name);
+            } else if (t is String && t.isNotEmpty) {
+              parsedTags.add(t);
+            }
+          }
+        }
+
+        final rawImages = news['imagesUrls'] ?? news['images_urls'];
+        List<String> parsedImages = [];
+        if (rawImages is List) {
+          parsedImages = rawImages.map((e) => e.toString()).toList();
+        }
+
         return {
           'type': 'news',
-          'id': news['id'],
-          'title': news['title'],
-          'short_desc': news['shortDesc'] ?? news['short_desc'] ?? '',
-          'content': news['content'] ?? news['aiContent'] ?? news['shortDesc'] ?? news['short_desc'] ?? '',
+          'id': news['id']?.toString() ?? '',
+          'short_code': news['short_code'] ?? news['shortCode'] ?? '',
+          'shortCode': news['shortCode'] ?? news['short_code'] ?? '',
+          'title': (news['title'] ?? '').toString(),
+          'short_desc': (news['shortDesc'] ?? news['short_desc'] ?? news['description'] ?? '').toString(),
+          'content': (news['content'] ?? news['aiContent'] ?? news['shortDesc'] ?? news['short_desc'] ?? '').toString(),
+          'original_content': (news['original_content'] ?? news['originalContent'] ?? news['content'] ?? '').toString(),
+          'full_content': (news['content'] ?? news['aiContent'] ?? '').toString(),
           'thumbnail_url': _formatImageUrl(news['thumbnailUrl'] as String?),
           'video_url': news['video_url'] ?? news['videoUrl'] ?? news['video'],
           'videoUrl': news['videoUrl'] ?? news['video_url'] ?? news['video'],
-          'imagesUrls': news['imagesUrls'] ?? news['images_urls'] ?? [],
-          'category': news['category']?['name'] ?? '',
+          'imagesUrls': parsedImages,
+          'category': news['category']?['name'] ?? (news['category'] is String ? news['category'] : ''),
+          'categoryName': news['category']?['name'] ?? (news['category'] is String ? news['category'] : ''),
           'category_color': news['category']?['color'],
-          'tags': news['tags'] != null ? (news['tags'] as List).map((t) => t['tag']?['name']?.toString() ?? '').where((name) => name.isNotEmpty).toList() : [],
+          'tags': parsedTags,
           'created_at': news['publishedAt'],
           'source_url': news['sourceUrl'] ?? '',
-          'reporter_name': news['reporter']?['name'] ?? 'Shadow News',
-          'reporter_image': news['reporter']?['avatar'],
+          'reporter_name': news['reporter']?['name'] ?? news['reporter_name'] ?? 'Shadow News',
+          'reporter_image': _formatImageUrl(news['reporter']?['avatar'] as String? ?? news['reporter_image'] as String?),
           'location_name': news['mandal']?['name'] ?? news['district']?['name'] ?? news['location'] ?? '',
-          'shares_count': news['sharesCount'] ?? 0,
-          'reposts_count': news['_count']?['reactions'] ?? 0,
-          'comments_count': news['_count']?['comments'] ?? 0,
+          'shares_count': news['sharesCount'] ?? news['shares_count'] ?? 0,
+          'reposts_count': news['_count']?['reactions'] ?? news['reposts_count'] ?? 0,
+          'comments_count': news['_count']?['comments'] ?? news['comments_count'] ?? 0,
         };
       }).whereType<Map<String, dynamic>>().toList();
 
@@ -263,7 +309,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     }
   }
 
-  Future<void> _handleReaction(String id, String type) async {
+  Future<void> _handleReaction(String? id, String type) async {
+    if (id == null || id.isEmpty) return;
     try {
       await apiClient.post(
         '/reactions',
@@ -726,47 +773,42 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
           : PageView.builder(
               scrollDirection: Axis.vertical,
               controller: _pageController,
-              itemCount: _newsItems.length + (_hasMore ? 1 : 1),
+              itemCount: _newsItems.length + (_hasMore ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == _newsItems.length) {
-                  if (_hasMore) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _loadMore();
-                    });
-                    return const Center(
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _loadMore();
+                  });
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
                       child: CircularProgressIndicator(
                         color: Color(0xFFD32F2F),
                       ),
-                    );
-                  } else {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.check_circle_outline,
-                            size: 64,
-                            color: Color(0xFFD32F2F),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            "You're all caught up!",
-                            style: GoogleFonts.poppins(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+                    ),
+                  );
                 }
                 final item = _newsItems[index];
-                if (item['type'] == 'ad' || item['type'] == 'admob_native') return const NativeAdWidget();
+                if (item['type'] == 'ad') {
+                  return CustomAdWidget(
+                    ad: item['ad'] ?? item['ad_data'] ?? {},
+                    onSkip: () {
+                      if (_pageController.hasClients) {
+                        _pageController.nextPage(
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeInOut,
+                        );
+                      }
+                    },
+                  );
+                } else if (item['type'] == 'ad_slider') {
+                  return AdSliderWidget(ads: item['ads'] ?? []);
+                } else if (item['type'] == 'admob_native') {
+                  return const AdmobNativeWidget();
+                }
                 return NewsCard(
                   news: item,
-                  onReaction: () => _handleReaction(item['id'], 'repost'),
+                  onReaction: () => _handleReaction(item['id']?.toString(), 'repost'),
                   onShare: () => _handleShare(item),
                   onWhatsAppShare: () => _handleWhatsAppShare(item),
                   timeAgo: _timeAgo((item['publishedAt'] ?? item['created_at'] ?? item['createdAt'])?.toString()),
