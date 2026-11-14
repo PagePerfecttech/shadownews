@@ -1007,24 +1007,62 @@ class _NewsCardState extends State<NewsCard> {
             ),
 
             // ==============================================================
-            // 3. METADATA ROW: (CLOCK) 20m ago  ------  4 of 93 Pages
+            // 3. METADATA ROW: [పూర్తి వివరాలు >]  ------  4 of 93 Pages
             // ==============================================================
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.access_time_outlined,
-                    size: 14,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    displayTimeAgo,
-                    style: GoogleFonts.notoSansTelugu(
-                      fontSize: 13.0,
-                      color: isDark ? Colors.grey[400] : const Color(0xFF555555),
-                      fontWeight: FontWeight.w500,
+                  InkWell(
+                    onTap: () => _showFullNewsModal(
+                      context: context,
+                      title: title,
+                      shortDesc: description,
+                      fullContent: fullContent.isNotEmpty ? fullContent : description,
+                      imageUrl: imageUrl,
+                      locationName: locationName,
+                      timeAgo: displayTimeAgo,
+                      reporterName: reporterName,
+                      categoryName: categoryName,
+                      shortCode: shortCode,
+                      isDark: isDark,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF2C1E1E) : const Color(0xFFFFF0F0),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFFD32F2F).withValues(alpha: 0.6),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.menu_book_rounded,
+                            size: 15,
+                            color: Color(0xFFD32F2F),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'పూర్తి వివరాలు',
+                            style: GoogleFonts.notoSansTelugu(
+                              fontSize: 13.0,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFFD32F2F),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 10,
+                            color: Color(0xFFD32F2F),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const Spacer(),
