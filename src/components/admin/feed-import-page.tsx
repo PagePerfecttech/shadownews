@@ -280,7 +280,13 @@ export default function FeedImportPage() {
 
   // 4. Perform Import with AI Rewrite
   const handleImportSelected = async () => {
-    const itemsToImport = previewItems.filter(i => selectedItemIds.has(i.id))
+    const defaultCatSlug = categories.find(c => c.id === defaultCategoryId)?.slug
+    const itemsToImport = previewItems
+      .filter(i => selectedItemIds.has(i.id))
+      .map(i => ({
+        ...i,
+        categoryHint: i.categoryHint || defaultCatSlug || undefined,
+      }))
 
     if (itemsToImport.length === 0) {
       toast.error('No items selected for import')

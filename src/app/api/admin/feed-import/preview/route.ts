@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { fetchAndParseFeed, scrapeArticleOgImage, getFallbackImage } from '@/lib/feed-parser'
+import { TELUGU_FEED_SOURCES } from '@/lib/feed-sources'
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,21 +44,28 @@ export async function POST(request: NextRequest) {
     const existingUrlMap = new Set(existingNews.map(n => n.sourceUrl).filter(Boolean))
     const existingTitleMap = new Set(existingNews.map(n => n.title))
 
+    const matchedSource = TELUGU_FEED_SOURCES.find(s => s.url.toLowerCase() === feedUrl.trim().toLowerCase())
+    const defaultHint = matchedSource?.categorySlug || ''
+
     // Enrich items with duplicate status and resolve missing images where possible
     const enrichedItems = await Promise.all(
       parsedItems.map(async item => {
         const isImported = existingUrlMap.has(item.link) || existingTitleMap.has(item.title)
+        const finalCategoryHint = (item.categoryHint && item.categoryHint.trim().length > 0)
+          ? item.categoryHint
+          : defaultHint
 
         let thumbnail = item.thumbnailUrl
         if (!thumbnail && item.link) {
           thumbnail = (await scrapeArticleOgImage(item.link)) || ''
         }
         if (!thumbnail) {
-          thumbnail = getFallbackImage(item.categoryHint)
+          thumbnail = getFallbackImage(finalCategoryHint)
         }
 
         return {
           ...item,
+          categoryHint: finalCategoryHint,
           thumbnailUrl: thumbnail,
           isAlreadyImported: isImported,
         }

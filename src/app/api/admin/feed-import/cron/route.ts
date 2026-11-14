@@ -61,7 +61,12 @@ async function handleCron(request: NextRequest) {
       try {
         const items = await fetchAndParseFeed(feedUrl, 6)
 
+        const matchedSource = TELUGU_FEED_SOURCES.find(s => s.url.toLowerCase() === feedUrl.toLowerCase())
         for (const item of items) {
+          if (matchedSource?.categorySlug && (!item.categoryHint || item.categoryHint.trim().length === 0)) {
+            item.categoryHint = matchedSource.categorySlug
+          }
+
           // Check if already in DB
           const existing = await db.news.findFirst({
             where: {

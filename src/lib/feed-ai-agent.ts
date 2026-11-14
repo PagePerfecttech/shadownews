@@ -490,6 +490,27 @@ export function detectCategoryFromTeluguText(
   categories: CategoryInfo[],
   hint?: string
 ): CategoryInfo {
+  // 1. Direct hint matching takes highest priority
+  if (hint && hint.trim().length > 0) {
+    const hintLower = hint.toLowerCase().trim()
+    const foundByHint = categories.find(c =>
+      c.slug.toLowerCase() === hintLower ||
+      c.name.toLowerCase() === hintLower ||
+      (hintLower.includes('sport') && c.slug === 'sports') ||
+      (hintLower.includes('cricket') && c.slug === 'sports') ||
+      (hintLower.includes('క్రీడలు') && c.slug === 'sports') ||
+      ((hintLower.includes('cinema') || hintLower.includes('entertain') || hintLower.includes('movie') || hintLower.includes('tollywood') || hintLower.includes('సినిమా')) && c.slug === 'entertainment') ||
+      ((hintLower.includes('crime') || hintLower.includes('నేరం') || hintLower.includes('క్రైమ్')) && c.slug === 'crime') ||
+      ((hintLower.includes('business') || hintLower.includes('finance') || hintLower.includes('మార్కెట్') || hintLower.includes('వాణిజ్యం')) && c.slug === 'business') ||
+      ((hintLower.includes('tech') || hintLower.includes('సాంకేతికత') || hintLower.includes('టెక్నాలజీ')) && c.slug === 'technology') ||
+      ((hintLower.includes('edu') || hintLower.includes('విద్య') || hintLower.includes('ఉద్యోగ')) && c.slug === 'education') ||
+      ((hintLower.includes('health') || hintLower.includes('వైద్యం') || hintLower.includes('ఆరోగ్యం')) && c.slug === 'health') ||
+      ((hintLower.includes('agri') || hintLower.includes('రైతు') || hintLower.includes('వ్యవసాయం')) && c.slug === 'agriculture') ||
+      ((hintLower.includes('politic') || hintLower.includes('రాజకీయ')) && c.slug === 'politics')
+    )
+    if (foundByHint) return foundByHint
+  }
+
   const normalized = (text + ' ' + (hint || '')).toLowerCase()
 
   let bestMatchSlug: string | null = null
@@ -508,12 +529,12 @@ export function detectCategoryFromTeluguText(
     }
   }
 
-  if (bestMatchSlug) {
+  if (bestMatchSlug && maxHits > 0) {
     const found = categories.find(c => c.slug.toLowerCase() === bestMatchSlug!.toLowerCase())
     if (found) return found
   }
 
-  // Default to politics or first category
+  // Default to politics or first category only if absolutely no matches
   return categories.find(c => c.slug === 'politics') || categories[0]
 }
 
@@ -612,6 +633,7 @@ TASK:
 1. Carefully summarize the full imported news content into a crisp, engaging 6-8 lines (60-80 words) short news summary (aiShortDesc) that will be displayed on the news card. It must cover: Who, What, Where, When, and Why. Remove all source watermarks/branding (e.g., "సాక్షి ప్రతినిధి", "టీవీ9", "ఈనాడు", etc.).
 2. Rewrite the headline into an eye-catching, factual Telugu title (MAX 75 CHARACTERS).
 3. Identify the single best Category from this exact list: [${categorySlugs}].
+   CRITICAL CATEGORY INSTRUCTION: If Category Hint is provided (e.g., 'sports', 'entertainment', 'cinema', 'business', 'crime', 'education', 'technology'), you MUST prioritize and select that exact category unless the content has absolutely nothing to do with it. Never classify sports or cinema or entertainment news as 'politics'.
 4. Identify the Location:
    - State code: "TG" (Telangana), "AP" (Andhra Pradesh), or "ALL" (National/International).
    - District name: Choose the exact English name from this list if mentioned or clearly related: [${districtNames}]. If national/international, return null.
@@ -695,22 +717,59 @@ Raw Content: ${item.content || item.description || item.title}`
     aiContent = local.aiContent
   }
 
-  // 4. Resolve Category (AI chosen -> Telugu keyword detection -> default/fallback)
-  let matchedCategory: CategoryInfo
-  if (chosenCategorySlug && categories.some(c => c.slug.toLowerCase() === chosenCategorySlug?.toLowerCase())) {
+  // 4. Resolve Category:
+  // Priority 1: If user explicitly provided defaultCategoryId and autoCategory is disabled, use it
+  let matchedCategory: CategoryInfo | null = null
+
+  if (options?.autoCategory === false && options?.defaultCategoryId) {
+    const explicitCat = categories.find(c => c.id === options.defaultCategoryId)
+    if (explicitCat) matchedCategory = explicitCat
+  }
+
+  // Priority 2: If item has an explicit category hint (from source or selection), match it
+  if (!matchedCategory && item.categoryHint && item.categoryHint.trim().length > 0) {
+    const hintLower = item.categoryHint.toLowerCase().trim()
+    const hintMatch = categories.find(c => 
+      c.slug.toLowerCase() === hintLower ||
+      c.name.toLowerCase() === hintLower ||
+      (hintLower.includes('sport') && c.slug === 'sports') ||
+      (hintLower.includes('cricket') && c.slug === 'sports') ||
+      (hintLower.includes('క్రీడలు') && c.slug === 'sports') ||
+      ((hintLower.includes('cinema') || hintLower.includes('entertain') || hintLower.includes('movie') || hintLower.includes('tollywood') || hintLower.includes('సినిమా')) && c.slug === 'entertainment') ||
+      ((hintLower.includes('crime') || hintLower.includes('నేరం') || hintLower.includes('క్రైమ్')) && c.slug === 'crime') ||
+      ((hintLower.includes('business') || hintLower.includes('finance') || hintLower.includes('మార్కెట్') || hintLower.includes('వాణిజ్యం')) && c.slug === 'business') ||
+      ((hintLower.includes('tech') || hintLower.includes('సాంకేతికత') || hintLower.includes('టెక్నాలజీ')) && c.slug === 'technology') ||
+      ((hintLower.includes('edu') || hintLower.includes('విద్య') || hintLower.includes('ఉద్యోగ')) && c.slug === 'education') ||
+      ((hintLower.includes('health') || hintLower.includes('వైద్యం') || hintLower.includes('ఆరోగ్యం')) && c.slug === 'health') ||
+      ((hintLower.includes('agri') || hintLower.includes('రైతు') || hintLower.includes('వ్యవసాయం')) && c.slug === 'agriculture') ||
+      ((hintLower.includes('politic') || hintLower.includes('రాజకీయ')) && c.slug === 'politics')
+    )
+    if (hintMatch) {
+      matchedCategory = hintMatch
+    }
+  }
+
+  // Priority 3: AI chosen category slug
+  if (!matchedCategory && chosenCategorySlug && categories.some(c => c.slug.toLowerCase() === chosenCategorySlug?.toLowerCase())) {
     matchedCategory = categories.find(c => c.slug.toLowerCase() === chosenCategorySlug?.toLowerCase())!
-  } else {
+  }
+
+  // Priority 4: Telugu keyword detection
+  if (!matchedCategory) {
     matchedCategory = detectCategoryFromTeluguText(
-      `${item.title} ${item.description} ${item.categoryHint}`,
+      `${item.title} ${item.description} ${item.categoryHint || ''}`,
       categories,
       item.categoryHint
     )
   }
 
-  // Override with user's explicitly selected fallback category if autoCategory is disabled
-  if (options?.autoCategory === false && options?.defaultCategoryId) {
-    const explicitCat = categories.find(c => c.id === options.defaultCategoryId)
-    if (explicitCat) matchedCategory = explicitCat
+  // Priority 5: User defaultCategoryId fallback or first category
+  if (!matchedCategory) {
+    if (options?.defaultCategoryId) {
+      matchedCategory = categories.find(c => c.id === options.defaultCategoryId) || categories[0]
+    } else {
+      matchedCategory = categories[0]
+    }
   }
 
   // 5. Resolve Location (AI chosen -> Telugu district dictionary scan -> default/fallback)

@@ -45,9 +45,16 @@ export async function POST(request: NextRequest) {
     const importedResults: any[] = []
     const skippedItems: any[] = []
     const targetStatus = options.status === 'draft' ? 'draft' : 'published'
+    const defaultCatObj = options.defaultCategoryId
+      ? categories.find(c => c.id === options.defaultCategoryId)
+      : null
 
     for (const item of items) {
       try {
+        if (defaultCatObj && (!item.categoryHint || item.categoryHint.trim().length === 0)) {
+          item.categoryHint = defaultCatObj.slug
+        }
+
         // Deduplicate check
         const existing = await db.news.findFirst({
           where: {
