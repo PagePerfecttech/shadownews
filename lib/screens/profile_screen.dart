@@ -476,7 +476,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _buildMenuItem(Icons.privacy_tip_outlined, 'Privacy Policy (గోప్యతా విధానం)', onTap: () => context.push('/privacy-policy')),
                         _buildDivider(),
 
-                        _buildMenuItem(Icons.help_outline, 'Support & Contact Us', subtitle: 'admin@shadownews.in', onTap: () => context.push('/contact-us')),
+                        _buildMenuItem(Icons.help_outline, 'Support & Contact Us', subtitle: 'info@shadownews.in', onTap: () => context.push('/contact-us')),
 
                         if (!isGuest) ...[
                           _buildDivider(),

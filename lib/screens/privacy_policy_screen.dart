@@ -39,7 +39,7 @@ We implement appropriate security measures to protect your personal data from un
 We may update this privacy policy from time to time. We will notify you of any changes by posting the new policy on this page.
 
 7. Contact Us
-If you have any questions about this privacy policy, please contact us at admin@shadownews.in.
+If you have any questions about this privacy policy, please contact us at info@shadownews.in.
           ''',
           style: TextStyle(fontSize: 16, height: 1.5),
         ),

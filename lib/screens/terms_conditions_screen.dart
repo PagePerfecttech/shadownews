@@ -53,7 +53,7 @@ class TermsConditionsScreen extends StatelessWidget {
                       const Icon(Icons.email, color: Color(0xFFD32F2F), size: 20),
                       const SizedBox(width: 10),
                       SelectableText(
-                        'admin@shadownews.in',
+                        'info@shadownews.in',
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,

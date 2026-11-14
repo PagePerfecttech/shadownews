@@ -25,7 +25,7 @@ class ContactUsScreen extends StatelessWidget {
             _buildContactItem(
               icon: Icons.email_outlined,
               title: 'Support & Grievance Email',
-              content: 'admin@shadownews.in',
+              content: 'info@shadownews.in',
             ),
             const SizedBox(height: 20),
             _buildContactItem(

@@ -34,7 +34,7 @@ class ReporterGuidelinesScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'admin@shadownews.in',
+                    'info@shadownews.in',
                     style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFFD32F2F)),
                   ),
                 ],
