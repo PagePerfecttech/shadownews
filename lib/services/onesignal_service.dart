@@ -1,5 +1,6 @@
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:flutter/material.dart';
+import '../routes/app_router.dart';
 
 /// Centralized OneSignal Service
 /// 
@@ -45,6 +46,23 @@ class OneSignalService {
       // Permanently suppress any OneSignal default In-App Messages / SDK Welcome Popups
       OneSignal.InAppMessages.paused(true);
       OneSignal.InAppMessages.clearTriggers();
+
+      // Listen for notification clicks to handle deep linking
+      OneSignal.Notifications.addClickListener((event) {
+        debugPrint('[OneSignal] Notification clicked: ${event.notification.notificationId}');
+        final data = event.notification.additionalData;
+        if (data != null) {
+          final route = data['route']?.toString();
+          final newsId = data['newsId']?.toString() ??
+              data['id']?.toString() ??
+              data['articleId']?.toString();
+          if (route != null && route.isNotEmpty) {
+            appRouter.go(route);
+          } else if (newsId != null && newsId.isNotEmpty) {
+            appRouter.go('/p/$newsId');
+          }
+        }
+      });
 
       // Set up push subscription observer
       _setupPushSubscriptionObserver();

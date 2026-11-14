@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'firebase_options.dart';
 import 'routes/app_router.dart';
@@ -36,6 +37,43 @@ Future<void> main() async {
       await oneSignalService.initialize();
     } catch (e) {
       debugPrint('OneSignal background init error: $e');
+    }
+
+    try {
+      final messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission(alert: true, badge: true, sound: true);
+      await messaging.subscribeToTopic('all');
+
+      // 1. Cold start from notification
+      final initialMessage = await messaging.getInitialMessage();
+      if (initialMessage != null) {
+        debugPrint('[FCM] Cold-start message: ${initialMessage.data}');
+        final route = initialMessage.data['route']?.toString();
+        final newsId = initialMessage.data['newsId']?.toString() ??
+            initialMessage.data['id']?.toString() ??
+            initialMessage.data['articleId']?.toString();
+        if (route != null && route.isNotEmpty) {
+          appRouter.go(route);
+        } else if (newsId != null && newsId.isNotEmpty) {
+          appRouter.go('/p/$newsId');
+        }
+      }
+
+      // 2. Opened from background
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        debugPrint('[FCM] Opened from background: ${message.data}');
+        final route = message.data['route']?.toString();
+        final newsId = message.data['newsId']?.toString() ??
+            message.data['id']?.toString() ??
+            message.data['articleId']?.toString();
+        if (route != null && route.isNotEmpty) {
+          appRouter.go(route);
+        } else if (newsId != null && newsId.isNotEmpty) {
+          appRouter.go('/p/$newsId');
+        }
+      });
+    } catch (e) {
+      debugPrint('[FCM] Push init error: $e');
     }
   });
 }
