@@ -5,6 +5,30 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../api/api_client.dart';
 
+enum LocationStatus {
+  success,
+  serviceDisabled,
+  permissionDenied,
+  permissionDeniedForever,
+  positionUnavailable,
+  serverMatchFailed,
+  error,
+}
+
+class LocationResult {
+  final bool success;
+  final LocationStatus status;
+  final String message;
+  final Map<String, dynamic>? data;
+
+  LocationResult({
+    required this.success,
+    required this.status,
+    required this.message,
+    this.data,
+  });
+}
+
 class LocationService {
   static final LocationService instance = LocationService._();
   LocationService._();
@@ -44,11 +68,20 @@ class LocationService {
   }
 
   Future<bool> initGPSLocation() async {
+    final res = await initGPSLocationWithDetails();
+    return res.success;
+  }
+
+  Future<LocationResult> initGPSLocationWithDetails() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         debugPrint('Location services are disabled.');
-        return false;
+        return LocationResult(
+          success: false,
+          status: LocationStatus.serviceDisabled,
+          message: 'GPS / స్థాన సేవలు ఆఫ్‌లో ఉన్నాయి. దయచేసి GPS ఆన్ చేయండి.',
+        );
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
@@ -56,26 +89,38 @@ class LocationService {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
           debugPrint('Location permissions are denied');
-          return false;
+          return LocationResult(
+            success: false,
+            status: LocationStatus.permissionDenied,
+            message: 'లొకేషన్ అనుమతి నిరాకరించబడింది.',
+          );
         }
       }
       
       if (permission == LocationPermission.deniedForever) {
         debugPrint('Location permissions are permanently denied.');
-        return false;
+        return LocationResult(
+          success: false,
+          status: LocationStatus.permissionDeniedForever,
+          message: 'లొకేషన్ అనుమతి శాశ్వతంగా నిరాకరించబడింది. దయచేసి సెట్టింగ్స్‌లో అనుమతించండి.',
+        );
       }
 
       Position? position;
       try {
         position = await Geolocator.getLastKnownPosition();
-        position ??= await _getCurrentPositionSafely(const Duration(seconds: 3));
+        position ??= await _getCurrentPositionSafely(const Duration(seconds: 4));
       } catch (e) {
         debugPrint('GPS fetch error: $e');
       }
 
       if (position == null) {
         debugPrint('Could not acquire valid GPS position.');
-        return false;
+        return LocationResult(
+          success: false,
+          status: LocationStatus.positionUnavailable,
+          message: 'GPS స్థానం లభించలేదు. దయచేసి కింద జాబితా నుండి మాన్యువల్‌గా ఎంచుకోండి.',
+        );
       }
 
       debugPrint('GPS coordinates matched: ${position.latitude}, ${position.longitude}');
@@ -157,11 +202,25 @@ class LocationService {
         }
 
         debugPrint('Successfully matched location using GPS: ${mandal?['name']}');
-        return true;
+        return LocationResult(
+          success: true,
+          status: LocationStatus.success,
+          message: 'స్థానాన్ని GPS ద్వారా స్వయంచాలకంగా గుర్తించబడింది!',
+          data: data,
+        );
       }
+      return LocationResult(
+        success: false,
+        status: LocationStatus.serverMatchFailed,
+        message: 'మీ ప్రాంతాన్ని సరిపోల్చలేకపోయాము. దయచేసి కింద మాన్యువల్‌గా ఎంచుకోండి.',
+      );
     } catch (e) {
       debugPrint('Failed to sync location via GPS: $e');
+      return LocationResult(
+        success: false,
+        status: LocationStatus.error,
+        message: 'లొకేషన్ లోపం ఏర్పడింది. దయచేసి మాన్యువల్‌గా ఎంచుకోండి.',
+      );
     }
-    return false;
   }
 }

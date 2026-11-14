@@ -39,7 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (prefs.getBool('is_reporter') == true) {
         _reporterStatus = ReporterStatus.active;
       }
-      _textSize = prefs.getString('text_size') ?? 'Medium';
+      _textSize = globalThemeProvider.textSize;
     });
 
     try {
@@ -118,31 +118,145 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showTextSizeDialog() {
+    double currentScale = globalThemeProvider.textScaleFactor;
+    String currentSize = globalThemeProvider.textSize;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Reading Text Size / అక్షరాల పరిమాణం', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16)),
-        content: RadioGroup<String>(
-          groupValue: _textSize,
-          onChanged: (val) async {
-            if (val != null) {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setString('text_size', val);
-              setState(() => _textSize = val);
-              if (ctx.mounted) Navigator.pop(ctx);
-            }
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: ['Small', 'Medium', 'Large'].map((size) {
-              return RadioListTile<String>(
-                title: Text(size, style: GoogleFonts.poppins()),
-                value: size,
-                activeColor: const Color(0xFFB71C1C),
-              );
-            }).toList(),
-          ),
-        ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.format_size_rounded, color: Color(0xFFD32F2F)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Reading Text Size\nఅక్షరాల పరిమాణం',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF1E1E1E)
+                          : const Color(0xFFF5F5F5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFD32F2F).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Preview / ప్రత్యక్ష ప్రివ్యూ:',
+                          style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(height: 6),
+                        MediaQuery(
+                          data: MediaQuery.of(context).copyWith(
+                            textScaler: TextScaler.linear(currentScale),
+                          ),
+                          child: Text(
+                            'షాడో న్యూస్ - ఆంధ్రప్రదేశ్ మరియు తెలంగాణ తాజా బ్రేకింగ్ వార్తలు.',
+                            style: GoogleFonts.notoSansTelugu(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Select Preset / పరిమాణం ఎంచుకోండి:',
+                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ThemeProvider.textSizeScales.keys.map((size) {
+                      final isSelected = currentSize == size;
+                      return ChoiceChip(
+                        label: Text(size, style: GoogleFonts.poppins(fontSize: 12)),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFFD32F2F),
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : null,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        onSelected: (selected) {
+                          if (selected) {
+                            setDialogState(() {
+                              currentSize = size;
+                              currentScale = ThemeProvider.textSizeScales[size] ?? 1.0;
+                            });
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+                  Slider(
+                    value: currentScale,
+                    min: 0.85,
+                    max: 1.35,
+                    divisions: 10,
+                    activeColor: const Color(0xFFD32F2F),
+                    label: '${(currentScale * 100).round()}%',
+                    onChanged: (val) {
+                      setDialogState(() {
+                        currentScale = val;
+                        if (val <= 0.92) {
+                          currentSize = 'Small';
+                        } else if (val <= 1.08) {
+                          currentSize = 'Medium';
+                        } else if (val <= 1.24) {
+                          currentSize = 'Large';
+                        } else {
+                          currentSize = 'Extra Large';
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Cancel', style: GoogleFonts.poppins(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  await globalThemeProvider.setTextScaleFactor(currentScale);
+                  setState(() => _textSize = globalThemeProvider.textSize);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD32F2F),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: Text('Apply / వర్తింపజేయి', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

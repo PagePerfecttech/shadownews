@@ -55,6 +55,15 @@ class MyApp extends StatelessWidget {
           darkTheme: AppTheme.darkTheme(),
           themeMode: globalThemeProvider.themeMode,
           debugShowCheckedModeBanner: false,
+          builder: (context, child) {
+            final mediaQuery = MediaQuery.of(context);
+            return MediaQuery(
+              data: mediaQuery.copyWith(
+                textScaler: TextScaler.linear(globalThemeProvider.textScaleFactor),
+              ),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
         );
       },
     );

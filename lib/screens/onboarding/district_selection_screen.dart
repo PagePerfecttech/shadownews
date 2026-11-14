@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class DistrictSelectionScreen extends StatelessWidget {
+class DistrictSelectionScreen extends StatefulWidget {
   final Map<String, dynamic> stateData;
 
   const DistrictSelectionScreen({
@@ -12,19 +12,56 @@ class DistrictSelectionScreen extends StatelessWidget {
   });
 
   @override
+  State<DistrictSelectionScreen> createState() => _DistrictSelectionScreenState();
+}
+
+class _DistrictSelectionScreenState extends State<DistrictSelectionScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  List<dynamic> _districts = [];
+  List<dynamic> _filteredDistricts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _districts = widget.stateData['districts'] ?? [];
+    _filteredDistricts = List.from(_districts);
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.trim().toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredDistricts = List.from(_districts);
+      } else {
+        _filteredDistricts = _districts.where((d) {
+          final name = (d['name'] ?? '').toString().toLowerCase();
+          return name.contains(query);
+        }).toList();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final List<dynamic> districts = stateData['districts'] ?? [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_rounded,
-            color: Color(0xFF1A1A1A),
+            color: isDark ? Colors.white : const Color(0xFF1A1A1A),
           ),
           onPressed: () => context.pop(),
         ),
@@ -34,7 +71,7 @@ class DistrictSelectionScreen extends StatelessWidget {
           style: GoogleFonts.poppins(
             fontSize: 22,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF1A1A1A),
+            color: isDark ? Colors.white : const Color(0xFF1A1A1A),
           ),
         ),
       ),
@@ -42,16 +79,33 @@ class DistrictSelectionScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text(
-              stateData['name'] ?? '',
+              widget.stateData['name'] ?? '',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 color: Colors.grey.shade600,
               ),
             ),
           ),
-          if (districts.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search District / జిల్లాను వెతకండి...',
+                prefixIcon: const Icon(Icons.search, color: Color(0xFFD32F2F)),
+                filled: true,
+                fillColor: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF5F5F5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+          ),
+          if (_filteredDistricts.isEmpty)
             Expanded(
               child: Center(
                 child: Column(
@@ -78,12 +132,12 @@ class DistrictSelectionScreen extends StatelessWidget {
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                itemCount: districts.length,
+                itemCount: _filteredDistricts.length,
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final district =
-                      districts[index] as Map<String, dynamic>;
+                      _filteredDistricts[index] as Map<String, dynamic>;
                   return _DistrictCard(
                     districtName: district['name'] ?? '',
                     onTap: () => _onDistrictSelected(context, district),
@@ -102,19 +156,23 @@ class DistrictSelectionScreen extends StatelessWidget {
   ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-        'selected_state_id', stateData['id']?.toString() ?? '');
+        'selected_state_id', widget.stateData['id']?.toString() ?? '');
     await prefs.setString(
-        'selected_state_name', stateData['name']?.toString() ?? '');
+        'selected_state_name', widget.stateData['name']?.toString() ?? '');
     await prefs.setString(
         'selected_district_id', district['id']?.toString() ?? '');
     await prefs.setString(
         'selected_district_name', district['name']?.toString() ?? '');
 
+    final assemblies = district['assemblies'] as List?;
     if (context.mounted) {
-      context.push('/onboarding/assembly', extra: district);
+      if (assemblies != null && assemblies.isNotEmpty) {
+        context.push('/onboarding/assembly', extra: district);
+      } else {
+        context.push('/onboarding/mandal', extra: district);
+      }
     }
   }
-
 }
 
 class _DistrictCard extends StatelessWidget {
@@ -128,8 +186,9 @@ class _DistrictCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: Colors.white,
+      color: isDark ? const Color(0xFF262626) : Colors.white,
       borderRadius: BorderRadius.circular(12),
       elevation: 1.5,
       shadowColor: Colors.black.withValues(alpha: 0.08),
@@ -141,7 +200,7 @@ class _DistrictCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.grey.shade100,
+              color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
               width: 1,
             ),
           ),
@@ -153,14 +212,14 @@ class _DistrictCard extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xFF1A1A1A),
+                    color: isDark ? Colors.white : const Color(0xFF1A1A1A),
                   ),
                 ),
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 16,
-                color: Colors.grey.shade400,
+                color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
               ),
             ],
           ),

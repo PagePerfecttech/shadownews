@@ -6,7 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../../api/api_client.dart';
 
-class MandalSelectionScreen extends StatelessWidget {
+class MandalSelectionScreen extends StatefulWidget {
   final Map<String, dynamic> districtData;
 
   const MandalSelectionScreen({
@@ -15,19 +15,56 @@ class MandalSelectionScreen extends StatelessWidget {
   });
 
   @override
+  State<MandalSelectionScreen> createState() => _MandalSelectionScreenState();
+}
+
+class _MandalSelectionScreenState extends State<MandalSelectionScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  List<dynamic> _mandals = [];
+  List<dynamic> _filteredMandals = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _mandals = widget.districtData['mandals'] ?? [];
+    _filteredMandals = List.from(_mandals);
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.trim().toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredMandals = List.from(_mandals);
+      } else {
+        _filteredMandals = _mandals.where((m) {
+          final name = (m['name'] ?? '').toString().toLowerCase();
+          return name.contains(query);
+        }).toList();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final List<dynamic> mandals = districtData['mandals'] ?? [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_rounded,
-            color: Color(0xFF1A1A1A),
+            color: isDark ? Colors.white : const Color(0xFF1A1A1A),
           ),
           onPressed: () => context.pop(),
         ),
@@ -37,7 +74,7 @@ class MandalSelectionScreen extends StatelessWidget {
           style: GoogleFonts.poppins(
             fontSize: 22,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF1A1A1A),
+            color: isDark ? Colors.white : const Color(0xFF1A1A1A),
           ),
         ),
       ),
@@ -45,16 +82,33 @@ class MandalSelectionScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text(
-              districtData['name'] ?? '',
+              widget.districtData['name'] ?? '',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 color: Colors.grey.shade600,
               ),
             ),
           ),
-          if (mandals.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search Mandal / మండలాన్ని వెతకండి...',
+                prefixIcon: const Icon(Icons.search, color: Color(0xFFD32F2F)),
+                filled: true,
+                fillColor: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF5F5F5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+          ),
+          if (_filteredMandals.isEmpty)
             Expanded(
               child: Center(
                 child: Column(
@@ -74,7 +128,6 @@ class MandalSelectionScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    // Allow user to skip mandal selection
                     ElevatedButton(
                       onPressed: () => _onSkipMandal(context),
                       style: ElevatedButton.styleFrom(
@@ -104,12 +157,12 @@ class MandalSelectionScreen extends StatelessWidget {
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                itemCount: mandals.length,
+                itemCount: _filteredMandals.length,
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final mandal =
-                      mandals[index] as Map<String, dynamic>;
+                      _filteredMandals[index] as Map<String, dynamic>;
                   return _MandalCard(
                     mandalName: mandal['name'] ?? '',
                     onTap: () => _onMandalSelected(context, mandal),
@@ -141,7 +194,6 @@ class MandalSelectionScreen extends StatelessWidget {
 
   Future<void> _onSkipMandal(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
-    // Save profile to backend without mandal
     final isGuest = prefs.getBool('is_guest') ?? false;
     if (!isGuest) {
       try {
@@ -195,8 +247,13 @@ class MandalSelectionScreen extends StatelessWidget {
 
     await _subscribeToNotifications(prefs);
 
+    final villages = mandal['villages'] as List?;
     if (context.mounted) {
-      context.go('/feed', extra: {'refresh': true});
+      if (villages != null && villages.isNotEmpty) {
+        context.push('/onboarding/village', extra: mandal);
+      } else {
+        context.go('/feed', extra: {'refresh': true});
+      }
     }
   }
 }
@@ -212,8 +269,9 @@ class _MandalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: Colors.white,
+      color: isDark ? const Color(0xFF262626) : Colors.white,
       borderRadius: BorderRadius.circular(12),
       elevation: 1.5,
       shadowColor: Colors.black.withValues(alpha: 0.08),
@@ -225,7 +283,7 @@ class _MandalCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.grey.shade100,
+              color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
               width: 1,
             ),
           ),
@@ -237,14 +295,14 @@ class _MandalCard extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xFF1A1A1A),
+                    color: isDark ? Colors.white : const Color(0xFF1A1A1A),
                   ),
                 ),
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 16,
-                color: Colors.grey.shade400,
+                color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
               ),
             ],
           ),

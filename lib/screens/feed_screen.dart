@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -896,10 +897,9 @@ class _FeedScreenState extends State<FeedScreen> {
     if (!mounted) return;
 
     final String resolvedImg = _resolveNewsImageUrl(news);
+    Uint8List? preloadedBytes;
     if (resolvedImg.isNotEmpty && mounted) {
-      try {
-        await precacheImage(CachedNetworkImageProvider(resolvedImg), context);
-      } catch (_) {}
+      preloadedBytes = await preloadImageBytes(resolvedImg);
     }
 
     final String reporterName = news['reporter_name']?.toString() ?? news['reporter']?['name']?.toString() ?? 'Shadow News';
@@ -948,6 +948,7 @@ class _FeedScreenState extends State<FeedScreen> {
                     reporter: reporterName,
                     reporterImage: reporterImage.isNotEmpty ? reporterImage : null,
                     stripColor: const Color(0xFFE53935),
+                    preloadedImageBytes: preloadedBytes,
                   ),
                 ),
               ),
@@ -1022,10 +1023,9 @@ class _FeedScreenState extends State<FeedScreen> {
     if (!mounted) return;
 
     final String resolvedImg = _resolveNewsImageUrl(news);
+    Uint8List? preloadedBytes;
     if (resolvedImg.isNotEmpty && mounted) {
-      try {
-        await precacheImage(CachedNetworkImageProvider(resolvedImg), context);
-      } catch (_) {}
+      preloadedBytes = await preloadImageBytes(resolvedImg);
     }
 
     final String reporterName = news['reporter_name']?.toString() ?? news['reporter']?['name']?.toString() ?? 'Shadow News';
@@ -1074,6 +1074,7 @@ class _FeedScreenState extends State<FeedScreen> {
                     reporter: reporterName,
                     reporterImage: reporterImage.isNotEmpty ? reporterImage : null,
                     stripColor: const Color(0xFFE53935),
+                    preloadedImageBytes: preloadedBytes,
                   ),
                 ),
               ),

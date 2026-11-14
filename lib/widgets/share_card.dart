@@ -7,8 +7,33 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import '../api/api_client.dart';
 import '../theme/app_theme.dart';
+
+Future<Uint8List?> preloadImageBytes(String imageUrl) async {
+  if (imageUrl.isEmpty || (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://'))) {
+    return null;
+  }
+  try {
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 4),
+        receiveTimeout: const Duration(seconds: 4),
+      ),
+    );
+    final response = await dio.get<List<int>>(
+      imageUrl,
+      options: Options(responseType: ResponseType.bytes),
+    );
+    if (response.data != null && response.data!.isNotEmpty) {
+      return Uint8List.fromList(response.data!);
+    }
+  } catch (e) {
+    debugPrint('Preload image bytes failed: $e');
+  }
+  return null;
+}
 
 class ShareCardWidget extends StatelessWidget {
   final String title;
@@ -21,6 +46,7 @@ class ShareCardWidget extends StatelessWidget {
   final String? reporterImage;
   final Color stripColor;
   final GlobalKey repaintKey;
+  final Uint8List? preloadedImageBytes;
 
   const ShareCardWidget({
     super.key,
@@ -34,6 +60,7 @@ class ShareCardWidget extends StatelessWidget {
     this.reporterImage,
     this.stripColor = const Color(0xFFD32F2F),
     required this.repaintKey,
+    this.preloadedImageBytes,
   });
 
   Widget _buildReporterAvatar(String? imageUrl, String name) {
@@ -174,15 +201,22 @@ class ShareCardWidget extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  (imageUrl.isNotEmpty && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')))
-                      ? CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.cover,
-                          memCacheWidth: isDataSaver ? 440 : 880,
-                          placeholder: (context, url) => _buildMediaFallback(),
-                          errorWidget: (context, url, error) => _buildMediaFallback(),
-                        )
-                      : _buildMediaFallback(),
+                  if (preloadedImageBytes != null && preloadedImageBytes!.isNotEmpty)
+                    Image.memory(
+                      preloadedImageBytes!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => _buildMediaFallback(),
+                    )
+                  else if (imageUrl.isNotEmpty && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')))
+                    CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      memCacheWidth: isDataSaver ? 440 : 880,
+                      placeholder: (context, url) => _buildMediaFallback(),
+                      errorWidget: (context, url, error) => _buildMediaFallback(),
+                    )
+                  else
+                    _buildMediaFallback(),
 
                   // Bottom-Left Overlay: "By {Reporter}" pill matching reference photo
                   if (reporter.isNotEmpty)
@@ -431,6 +465,7 @@ Future<XFile?> captureNewsCardImage({
     }
 
     if (boundary != null && !boundary.debugNeedsPaint) {
+      await Future.delayed(const Duration(milliseconds: 150));
       final ui.Image image = await boundary.toImage(pixelRatio: 2.5);
       final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData != null) {

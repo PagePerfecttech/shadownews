@@ -10,6 +10,7 @@ import '../screens/onboarding/state_selection_screen.dart';
 import '../screens/onboarding/district_selection_screen.dart';
 import '../screens/onboarding/mandal_selection_screen.dart';
 import '../screens/onboarding/assembly_selection_screen.dart';
+import '../screens/onboarding/village_selection_screen.dart';
 import '../screens/feed_screen.dart';
 import '../screens/shorts_screen.dart';
 import '../screens/discovery_screen.dart';
@@ -159,6 +160,16 @@ final GoRouter appRouter = GoRouter(
             ? Map<String, dynamic>.from(extra)
             : <String, dynamic>{};
         return MandalSelectionScreen(districtData: assemblyData);
+      },
+    ),
+    GoRoute(
+      path: '/onboarding/village',
+      builder: (context, state) {
+        final extra = state.extra;
+        final mandalData = extra is Map
+            ? Map<String, dynamic>.from(extra)
+            : <String, dynamic>{};
+        return VillageSelectionScreen(mandalData: mandalData);
       },
     ),
     GoRoute(

@@ -62,10 +62,21 @@ final globalThemeProvider = ThemeProvider();
 class ThemeProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.light;
   bool _isDataSaverEnabled = false;
+  String _textSize = 'Medium';
+  double _textScaleFactor = 1.0;
 
   ThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
   bool get isDataSaverEnabled => _isDataSaverEnabled;
+  String get textSize => _textSize;
+  double get textScaleFactor => _textScaleFactor;
+
+  static const Map<String, double> textSizeScales = {
+    'Small': 0.88,
+    'Medium': 1.0,
+    'Large': 1.16,
+    'Extra Large': 1.32,
+  };
 
   Future<void> init() async {
     final storage = await StorageService.getInstance();
@@ -74,11 +85,15 @@ class ThemeProvider extends ChangeNotifier {
 
     if (savedMode == 'dark' || isDarkSaved) {
       _themeMode = ThemeMode.dark;
+    } else if (savedMode == 'system') {
+      _themeMode = ThemeMode.system;
     } else {
       _themeMode = ThemeMode.light;
     }
 
     _isDataSaverEnabled = storage.getBool(StorageKeys.dataSaverEnabled, defaultValue: false);
+    _textSize = storage.getString('text_size') ?? 'Medium';
+    _textScaleFactor = textSizeScales[_textSize] ?? 1.0;
     notifyListeners();
   }
 
@@ -86,7 +101,10 @@ class ThemeProvider extends ChangeNotifier {
     _themeMode = mode;
     notifyListeners();
     final storage = await StorageService.getInstance();
-    await storage.setString(StorageKeys.themeMode, mode == ThemeMode.dark ? 'dark' : 'light');
+    String modeStr = 'light';
+    if (mode == ThemeMode.dark) modeStr = 'dark';
+    if (mode == ThemeMode.system) modeStr = 'system';
+    await storage.setString(StorageKeys.themeMode, modeStr);
     await storage.setBool('dark_mode', mode == ThemeMode.dark);
   }
 
@@ -96,6 +114,31 @@ class ThemeProvider extends ChangeNotifier {
 
   Future<void> toggleTheme() async {
     await setDarkMode(_themeMode != ThemeMode.dark);
+  }
+
+  Future<void> setTextSize(String size) async {
+    if (!textSizeScales.containsKey(size)) return;
+    _textSize = size;
+    _textScaleFactor = textSizeScales[size] ?? 1.0;
+    notifyListeners();
+    final storage = await StorageService.getInstance();
+    await storage.setString('text_size', size);
+  }
+
+  Future<void> setTextScaleFactor(double factor) async {
+    _textScaleFactor = factor.clamp(0.85, 1.35);
+    if (_textScaleFactor <= 0.92) {
+      _textSize = 'Small';
+    } else if (_textScaleFactor <= 1.08) {
+      _textSize = 'Medium';
+    } else if (_textScaleFactor <= 1.24) {
+      _textSize = 'Large';
+    } else {
+      _textSize = 'Extra Large';
+    }
+    notifyListeners();
+    final storage = await StorageService.getInstance();
+    await storage.setString('text_size', _textSize);
   }
 
   Future<void> setDataSaverEnabled(bool enabled) async {

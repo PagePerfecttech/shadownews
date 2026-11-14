@@ -761,8 +761,8 @@ class _NewsCardState extends State<NewsCard> {
                     CachedNetworkImage(
                       imageUrl: imageUrl,
                       fit: BoxFit.cover,
-                      memCacheWidth: 720,
-                      memCacheHeight: 960,
+                      memCacheWidth: ((MediaQuery.of(context).size.width * MediaQuery.of(context).devicePixelRatio).round()).clamp(480, 1080),
+                      memCacheHeight: (((MediaQuery.of(context).size.width * MediaQuery.of(context).devicePixelRatio).round() * 9) ~/ 16).clamp(270, 720),
                       placeholder: (context, url) => Container(
                         color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFE0E0E0),
                         child: const Center(
@@ -865,7 +865,7 @@ class _NewsCardState extends State<NewsCard> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // TITLE / HEADLINE (Modern Telugu Sans-serif, 17.5 px, 700 bold)
+                            // TITLE / HEADLINE (Telugu-friendly typography, 19.5 px, bold, no clipped glyphs)
                             if (title.isNotEmpty)
                               InkWell(
                                 onTap: () => _showFullNewsModal(
@@ -884,17 +884,19 @@ class _NewsCardState extends State<NewsCard> {
                                 borderRadius: BorderRadius.circular(6),
                                 child: Text(
                                   title,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.notoSansTelugu(
-                                    fontSize: 17.5,
+                                    fontSize: 19.5,
                                     fontWeight: FontWeight.w700,
                                     color: isDark ? Colors.white : const Color(0xFF1E2022),
-                                    height: 1.35,
+                                    height: 1.42,
                                   ),
                                 ),
                               ),
                             if (title.isNotEmpty) const SizedBox(height: 8),
 
-                            // 6-8 LINES SUMMARIZED CONTENT
+                            // 7-8 LINES SUMMARIZED CONTENT (Comfortable Telugu reading typography)
                             if (description.isNotEmpty)
                               InkWell(
                                 onTap: () => _showFullNewsModal(
@@ -913,18 +915,18 @@ class _NewsCardState extends State<NewsCard> {
                                 borderRadius: BorderRadius.circular(6),
                                 child: Text(
                                   description,
-                                  maxLines: 7, // Clean 6-8 lines summary
+                                  maxLines: 8, // Clean 7-8 lines summary
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.notoSansTelugu(
-                                    fontSize: 14.5,
+                                    fontSize: 15.5,
                                     fontWeight: FontWeight.w400,
                                     color: isDark ? const Color(0xFFD1D5DB) : const Color(0xFF333333),
-                                    height: 1.48,
+                                    height: 1.58,
                                   ),
                                 ),
                               ),
 
-                            // "పూర్తి వివరాలు" (Purthi Vivaralu) Action Button
+                            // "పూర్తి వివరాలు" (Purthi Vivaralu / Full Details) Action Button (min 48dp touch target)
                             Padding(
                               padding: const EdgeInsets.only(top: 10, bottom: 4),
                               child: InkWell(
@@ -941,41 +943,55 @@ class _NewsCardState extends State<NewsCard> {
                                   shortCode: shortCode,
                                   isDark: isDark,
                                 ),
-                                borderRadius: BorderRadius.circular(20),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6.5),
-                                  decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF2A1C1C) : const Color(0xFFFFF1F1),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: const Color(0xFFD32F2F).withValues(alpha: 0.38),
-                                      width: 1.2,
-                                    ),
+                                borderRadius: BorderRadius.circular(24),
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    minHeight: 48,
+                                    minWidth: 150,
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.menu_book_rounded,
-                                        size: 15,
-                                        color: Color(0xFFD32F2F),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF2C1E1E) : const Color(0xFFFFF0F0),
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: const Color(0xFFD32F2F).withValues(alpha: 0.5),
+                                        width: 1.5,
                                       ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'పూర్తి వివరాలు',
-                                        style: GoogleFonts.notoSansTelugu(
-                                          fontSize: 13.0,
-                                          fontWeight: FontWeight.w700,
-                                          color: const Color(0xFFD32F2F),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFD32F2F).withValues(alpha: 0.10),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
                                         ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Icon(
-                                        Icons.arrow_forward_ios_rounded,
-                                        size: 11,
-                                        color: Color(0xFFD32F2F),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.menu_book_rounded,
+                                          size: 18,
+                                          color: Color(0xFFD32F2F),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'పూర్తి వివరాలు',
+                                          style: GoogleFonts.notoSansTelugu(
+                                            fontSize: 14.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFFD32F2F),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        const Icon(
+                                          Icons.arrow_forward_ios_rounded,
+                                          size: 13,
+                                          color: Color(0xFFD32F2F),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
