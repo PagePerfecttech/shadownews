@@ -265,6 +265,7 @@ model User {
 
 model News {
   id           String         @id @default(cuid())
+  shortCode    String?        @unique @map("short_code")
   title        String
   shortDesc    String?        @map("short_desc")
   content      String?

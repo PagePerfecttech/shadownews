@@ -14,8 +14,13 @@ export default async function Image({ params }: { params: { id: string } }) {
   const resolvedParams = typeof (params as any).then === 'function' ? await (params as any) : params;
   const { id } = resolvedParams;
 
-  const news = await db.news.findUnique({
-    where: { id },
+  const news = await db.news.findFirst({
+    where: {
+      OR: [
+        { id },
+        { shortCode: id },
+      ],
+    },
     include: { category: true, reporter: true, mandal: true, district: true }
   })
 

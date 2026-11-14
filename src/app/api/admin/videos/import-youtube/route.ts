@@ -1,7 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
-import { autoImportYouTubeShorts, fetchYouTubeChannelVideos, importYouTubeVideoByUrl } from '@/lib/youtube-import'
-import { db } from '@/lib/db'
+import {
+  autoImportYouTubeShorts,
+  importYouTubeShortsFromChannel,
+  importYouTubeVideoByUrl,
+  POPULAR_TELUGU_CHANNELS,
+} from '@/lib/youtube-import'
+
+export async function GET(request: NextRequest) {
+  try {
+    const admin = await verifyAuth(request)
+    if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    return NextResponse.json({
+      success: true,
+      popularChannels: POPULAR_TELUGU_CHANNELS,
+    })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 })
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,8 +27,9 @@ export async function POST(request: NextRequest) {
     if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json().catch(() => ({}))
-    const { channelId, url, videoUrl } = body
+    const { channel, channelUrl, channelHandle, channelId, url, videoUrl, limit = 10 } = body
 
+    // 1. Single video / shorts URL
     const targetUrl = url || videoUrl
     if (targetUrl) {
       const res = await importYouTubeVideoByUrl(targetUrl)
@@ -20,50 +39,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, video: res.video })
     }
 
-    if (channelId) {
-      const items = await fetchYouTubeChannelVideos(channelId, 10)
-      let count = 0
-
-      const defaultCategory = await db.category.findFirst({
-        where: { isActive: true },
-        select: { id: true },
-      })
-
-      for (const item of items) {
-        const existing = await db.video.findFirst({
-          where: {
-            OR: [
-              { videoUrl: item.videoUrl },
-              { title: item.title },
-            ],
-          },
-        })
-
-        if (!existing) {
-          await db.video.create({
-            data: {
-              title: item.title,
-              description: item.description,
-              videoUrl: item.videoUrl,
-              thumbnailUrl: item.thumbnailUrl,
-              duration: 60,
-              categoryId: defaultCategory?.id || null,
-              status: 'published',
-              createdAt: item.publishedAt,
-            },
-          })
-          count++
-        }
+    // 2. Specific channel (URL, @handle, or ID)
+    const targetChannel = channel || channelUrl || channelHandle || channelId
+    if (targetChannel && typeof targetChannel === 'string' && targetChannel.trim().length > 0) {
+      const res = await importYouTubeShortsFromChannel(targetChannel.trim(), Math.min(Number(limit) || 10, 30))
+      if (!res.success) {
+        return NextResponse.json({ error: res.error || 'Failed to import from channel' }, { status: 400 })
       }
-
-      return NextResponse.json({
-        success: true,
-        importedCount: count,
-        totalFetched: items.length,
-      })
+      return NextResponse.json(res)
     }
 
-    // Default: Auto-import from Telugu news YouTube channels
+    // 3. Default: Auto-import from Popular Telugu channels
     const result = await autoImportYouTubeShorts(3)
 
     return NextResponse.json({

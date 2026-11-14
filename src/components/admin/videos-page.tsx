@@ -21,6 +21,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -140,6 +148,41 @@ export default function VideosPage() {
   const [deleteTarget, setDeleteTarget] = useState<VideoItem | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [importingYt, setImportingYt] = useState(false)
+  const [channelModalOpen, setChannelModalOpen] = useState(false)
+  const [customChannelUrl, setCustomChannelUrl] = useState('')
+  const [channelLimit, setChannelLimit] = useState('10')
+
+  const handleImportChannelShorts = async (channelOverride?: string) => {
+    const channelToImport = (channelOverride !== undefined ? channelOverride : customChannelUrl).trim()
+    if (!channelToImport && channelOverride === undefined) {
+      toast.error('Please enter a YouTube Channel URL, @handle, or ID')
+      return
+    }
+
+    setImportingYt(true)
+    try {
+      const res = await authFetchJSON('/api/admin/videos/import-youtube', {
+        method: 'POST',
+        body: JSON.stringify({
+          channel: channelToImport || undefined,
+          limit: parseInt(channelLimit, 10) || 10,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Import failed')
+
+      toast.success(
+        `Imported ${data.importedCount || 0} Shorts from channel (${data.skippedCount || 0} duplicates skipped)`
+      )
+      setChannelModalOpen(false)
+      setCustomChannelUrl('')
+      fetchVideos()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to import YouTube Shorts')
+    } finally {
+      setImportingYt(false)
+    }
+  }
 
   const handleAutoImportYouTube = async () => {
     setImportingYt(true)
@@ -371,12 +414,12 @@ export default function VideosPage() {
               </Button>
               <Button
                 variant="outline"
-                onClick={handleAutoImportYouTube}
+                onClick={() => setChannelModalOpen(true)}
                 disabled={importingYt}
                 className="border-red-200 text-red-600 hover:bg-red-50 flex-1 sm:flex-none"
               >
                 <Film className={`h-4 w-4 mr-2 ${importingYt ? 'animate-spin' : ''}`} />
-                {importingYt ? 'Importing Shorts...' : 'Auto-Import Shorts'}
+                {importingYt ? 'Importing Shorts...' : 'Import Shorts from Channel'}
               </Button>
               <Button
                 onClick={openCreateForm}
@@ -558,6 +601,120 @@ export default function VideosPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Import from YouTube Channel Dialog */}
+        <Dialog open={channelModalOpen} onOpenChange={setChannelModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Film className="h-5 w-5 text-red-600" />
+                Import YouTube Shorts by Channel
+              </DialogTitle>
+              <DialogDescription>
+                Select a top Telugu news channel or provide any YouTube channel link / @handle to import latest shorts.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              {/* Presets */}
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase">
+                  Top Telugu News Channels (1-Click)
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { name: 'TV9 Telugu', handle: '@TV9TeluguLive' },
+                    { name: 'Sakshi TV', handle: '@sakshitv' },
+                    { name: 'NTV Telugu', handle: '@ntvtelugunews' },
+                    { name: 'V6 News', handle: '@V6NewsTelugu' },
+                    { name: 'ABN Telugu', handle: '@abntelugutv' },
+                  ].map((ch) => (
+                    <Button
+                      key={ch.handle}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={importingYt}
+                      onClick={() => {
+                        setCustomChannelUrl(ch.handle)
+                        handleImportChannelShorts(ch.handle)
+                      }}
+                      className="justify-start text-xs border-gray-200 hover:border-red-400 hover:bg-red-50/50"
+                    >
+                      <Film className="h-3.5 w-3.5 mr-1.5 text-red-600 shrink-0" />
+                      <span className="truncate">{ch.name}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="relative my-2">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-muted-foreground font-medium">Or custom channel</span>
+                </div>
+              </div>
+
+              {/* Custom Channel Link Input */}
+              <div className="space-y-2">
+                <Label htmlFor="custom-channel-url">YouTube Channel Link or @Handle</Label>
+                <Input
+                  id="custom-channel-url"
+                  placeholder="e.g. https://www.youtube.com/@TV9TeluguLive or @sakshitv"
+                  value={customChannelUrl}
+                  onChange={(e) => setCustomChannelUrl(e.target.value)}
+                  disabled={importingYt}
+                />
+              </div>
+
+              {/* Quantity */}
+              <div className="space-y-2">
+                <Label htmlFor="channel-limit">Number of Shorts to Fetch</Label>
+                <Select value={channelLimit} onValueChange={setChannelLimit} disabled={importingYt}>
+                  <SelectTrigger id="channel-limit">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">Latest 5 Shorts</SelectItem>
+                    <SelectItem value="10">Latest 10 Shorts</SelectItem>
+                    <SelectItem value="20">Latest 20 Shorts</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setChannelModalOpen(false)}
+                disabled={importingYt}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleImportChannelShorts()}
+                disabled={importingYt}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {importingYt ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Film className="h-4 w-4 mr-2" />
+                    Import Shorts
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   )

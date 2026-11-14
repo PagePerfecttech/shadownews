@@ -15,8 +15,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     : params;
   
   const { id } = resolvedParams
-  const news = await db.news.findUnique({
-    where: { id },
+  const news = await db.news.findFirst({
+    where: {
+      OR: [
+        { id },
+        { shortCode: id },
+      ],
+    },
   })
 
   if (!news) {
@@ -74,8 +79,13 @@ export default async function NewsPreviewPage({ params }: PageProps) {
   
   const { id } = resolvedParams
 
-  const news = await db.news.findUnique({
-    where: { id },
+  const news = await db.news.findFirst({
+    where: {
+      OR: [
+        { id },
+        { shortCode: id },
+      ],
+    },
     include: {
       category: true,
       mandal: true,

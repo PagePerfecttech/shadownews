@@ -1,5 +1,9 @@
 import { db } from './db'
 import { stripHtml } from './feed-parser'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+
+const execFileAsync = promisify(execFile)
 
 export interface YouTubeShortItem {
   videoId: string
@@ -11,15 +15,64 @@ export interface YouTubeShortItem {
   channelTitle: string
 }
 
-const TELUGU_NEWS_CHANNELS = [
-  { id: 'UCPXTXMecYqnRKNdqdVOGSFg', name: 'TV9 Telugu Live' },
-  { id: 'UCZ9m4KOh8Ei60428xeGYDCQ', name: 'Sakshi TV' },
+export const POPULAR_TELUGU_CHANNELS = [
+  { id: 'UCPXTXMecYqnRKNdqdVOGSFg', handle: '@TV9TeluguLive', name: 'TV9 Telugu Live' },
+  { id: 'UCZ9m4KOh8Ei60428xeGYDCQ', handle: '@sakshitv', name: 'Sakshi TV' },
+  { id: 'UCd_x_1Fk98Zg90H_y0GjNqQ', handle: '@ntvtelugunews', name: 'NTV Telugu' },
+  { id: 'UC4Z7m9T7y9jNqL2yqR4T7ug', handle: '@V6NewsTelugu', name: 'V6 News Telugu' },
+  { id: 'UCW4pU0M8T6yT5kK9rL7yQ1w', handle: '@abntelugutv', name: 'ABN Telugu' },
 ]
 
-import { execFile } from 'child_process'
-import { promisify } from 'util'
+/**
+ * Resolve a YouTube Channel URL, @handle, or ID into a canonical YouTube channel ID (UC...)
+ */
+export async function resolveChannelId(input: string): Promise<string | null> {
+  const trimmed = input.trim()
+  if (!trimmed) return null
 
-const execFileAsync = promisify(execFile)
+  // If already a 24-character UC ID
+  if (/^UC[\w-]{22}$/.test(trimmed)) {
+    return trimmed
+  }
+
+  // If URL contains /channel/UC...
+  const channelUrlMatch = trimmed.match(/\/channel\/(UC[\w-]{22})/i)
+  if (channelUrlMatch) {
+    return channelUrlMatch[1]
+  }
+
+  // Handle URL or @handle: @channel or https://www.youtube.com/@channel
+  let targetUrl = trimmed
+  if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+    targetUrl = `https://www.youtube.com/${trimmed.startsWith('@') ? trimmed : '@' + trimmed}`
+  }
+
+  try {
+    const { stdout } = await execFileAsync('curl.exe', [
+      '-s',
+      '-L',
+      '--max-time',
+      '10',
+      '-A',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      targetUrl,
+    ])
+
+    const match =
+      stdout.match(/channel\/(UC[\w-]{22})/i) ||
+      stdout.match(/"channelId":"(UC[\w-]{22})"/i) ||
+      stdout.match(/"browseId":"(UC[\w-]{22})"/i) ||
+      stdout.match(/itemprop="identifier" content="(UC[\w-]{22})"/i)
+
+    if (match && match[1]) {
+      return match[1]
+    }
+  } catch (err) {
+    console.warn(`Failed to resolve channel ID for ${input}:`, err)
+  }
+
+  return null
+}
 
 /**
  * Fetch latest YouTube videos/shorts for a channel via public YouTube XML feed (No API Key Required)
@@ -162,8 +215,88 @@ export async function importYouTubeVideoByUrl(rawUrl: string): Promise<{ success
 }
 
 /**
- * Auto-import YouTube Shorts into the Videos section (`db.video`).
- * Ensures no duplicate videos are added and links to an active category.
+ * Import latest shorts from a specific channel (link, handle, or ID)
+ */
+export async function importYouTubeShortsFromChannel(
+  channelInput: string,
+  limit: number = 10
+): Promise<{
+  success: boolean
+  channelId?: string
+  importedCount: number
+  skippedCount: number
+  importedVideos: Array<{ id: string; title: string; videoUrl: string }>
+  error?: string
+}> {
+  const channelId = await resolveChannelId(channelInput)
+  if (!channelId) {
+    return {
+      success: false,
+      importedCount: 0,
+      skippedCount: 0,
+      importedVideos: [],
+      error: `Could not resolve YouTube channel from "${channelInput}". Please check the channel link or handle.`,
+    }
+  }
+
+  const items = await fetchYouTubeChannelVideos(channelId, limit)
+  let importedCount = 0
+  let skippedCount = 0
+  const importedVideos: Array<{ id: string; title: string; videoUrl: string }> = []
+
+  const defaultCategory = await db.category.findFirst({
+    where: { isActive: true },
+    select: { id: true },
+  })
+
+  for (const item of items) {
+    const existing = await db.video.findFirst({
+      where: {
+        OR: [
+          { videoUrl: item.videoUrl },
+          { videoUrl: `https://www.youtube.com/watch?v=${item.videoId}` },
+          { title: item.title },
+        ],
+      },
+    })
+
+    if (existing) {
+      skippedCount++
+      continue
+    }
+
+    const created = await db.video.create({
+      data: {
+        title: item.title,
+        description: item.description,
+        videoUrl: item.videoUrl,
+        thumbnailUrl: item.thumbnailUrl,
+        duration: 60,
+        categoryId: defaultCategory?.id || null,
+        status: 'published',
+        createdAt: item.publishedAt,
+      },
+    })
+
+    importedVideos.push({
+      id: created.id,
+      title: created.title,
+      videoUrl: created.videoUrl,
+    })
+    importedCount++
+  }
+
+  return {
+    success: true,
+    channelId,
+    importedCount,
+    skippedCount,
+    importedVideos,
+  }
+}
+
+/**
+ * Auto-import YouTube Shorts into the Videos section (`db.video`) from popular Telugu channels.
  */
 export async function autoImportYouTubeShorts(limitPerChannel: number = 3): Promise<{
   importedCount: number
@@ -174,68 +307,11 @@ export async function autoImportYouTubeShorts(limitPerChannel: number = 3): Prom
   let skippedCount = 0
   const importedVideos: Array<{ id: string; title: string; videoUrl: string }> = []
 
-  // Get active category for news/videos
-  const defaultCategory = await db.category.findFirst({
-    where: { isActive: true },
-    select: { id: true },
-  })
-
-  for (const channel of TELUGU_NEWS_CHANNELS) {
-    const items = await fetchYouTubeChannelVideos(channel.id, limitPerChannel)
-
-    for (const item of items) {
-      // Check if video already exists in db.video
-      const existingVideo = await db.video.findFirst({
-        where: {
-          OR: [
-            { videoUrl: item.videoUrl },
-            { videoUrl: `https://www.youtube.com/watch?v=${item.videoId}` },
-            { title: item.title },
-          ],
-        },
-      })
-
-      if (existingVideo) {
-        skippedCount++
-        continue
-      }
-
-      // Check if also exists in db.news
-      const existingNews = await db.news.findFirst({
-        where: {
-          OR: [
-            { videoUrl: item.videoUrl },
-            { videoUrl: `https://www.youtube.com/watch?v=${item.videoId}` },
-          ],
-        },
-      })
-
-      if (existingNews) {
-        skippedCount++
-        continue
-      }
-
-      const created = await db.video.create({
-        data: {
-          title: item.title,
-          description: item.description,
-          videoUrl: item.videoUrl,
-          thumbnailUrl: item.thumbnailUrl,
-          duration: 60, // standard shorts length
-          categoryId: defaultCategory?.id || null,
-          status: 'published',
-          createdAt: item.publishedAt,
-        },
-      })
-
-      importedVideos.push({
-        id: created.id,
-        title: created.title,
-        videoUrl: created.videoUrl,
-      })
-
-      importedCount++
-    }
+  for (const channel of POPULAR_TELUGU_CHANNELS) {
+    const res = await importYouTubeShortsFromChannel(channel.id, limitPerChannel)
+    importedCount += res.importedCount
+    skippedCount += res.skippedCount
+    importedVideos.push(...res.importedVideos)
   }
 
   return { importedCount, skippedCount, importedVideos }

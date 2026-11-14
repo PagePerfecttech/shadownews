@@ -202,6 +202,8 @@ export async function GET(request: NextRequest) {
       };
       return {
         ...item,
+        shortCode: item.shortCode,
+        short_code: item.shortCode,
         reporter: reporterObj,
         reporter_name: reporterName,
         reporter_image: reporterAvatar,
