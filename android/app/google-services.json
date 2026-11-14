@@ -12,7 +12,20 @@
           "package_name": "com.shadownews.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "620220523849-jdutqa3fjgorhsed93ecrsoeqbsqfpbj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.shadownews.app",
+            "certificate_hash": "53c70f6ba0eda4b029cbf2a6af344ec586e35ce8"
+          }
+        },
+        {
+          "client_id": "620220523849-ci0pb079e79envogpn5qjts5pmqusmhr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB3suUcFL83NjW43FrDT0ELeduHTvpToto"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "620220523849-ci0pb079e79envogpn5qjts5pmqusmhr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

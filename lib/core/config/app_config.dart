@@ -8,7 +8,7 @@ class AppConfig {
 
   static const String googleServerClientId = String.fromEnvironment(
     'GOOGLE_SERVER_CLIENT_ID',
-    defaultValue: '323677252744-oge07ovmjhhbfe74ijmdbauvnbfj00gp.apps.googleusercontent.com',
+    defaultValue: '620220523849-ci0pb079e79envogpn5qjts5pmqusmhr.apps.googleusercontent.com',
   );
 
   static const String defaultAppOpenAdId = String.fromEnvironment(
