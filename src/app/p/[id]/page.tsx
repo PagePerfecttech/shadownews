@@ -26,11 +26,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!news) {
     return {
-      title: 'News Not Found',
+      title: 'News Not Found | Shadow News',
     }
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://m.shadownews.in'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.shadownews.in'
   const images: string[] = safeJsonParse<string[]>(news.imagesUrls, [])
   let imageUrl = news.thumbnailUrl || (images.length > 0 ? images[0] : `${baseUrl}/logo.png`)
   if (imageUrl.startsWith('/')) {
@@ -38,18 +38,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const cleanDescription = (news.shortDesc || news.title || '').trim()
+  const code = news.shortCode || id
 
   return {
     title: `${news.title} | Shadow News`,
     description: cleanDescription,
     metadataBase: new URL(baseUrl),
     alternates: {
-      canonical: `${baseUrl}/p/${news.shortCode || id}`,
+      canonical: `${baseUrl}/p/${code}`,
     },
     openGraph: {
       title: news.title,
       description: cleanDescription,
-      url: `${baseUrl}/p/${news.shortCode || id}`,
+      url: `${baseUrl}/p/${code}`,
       type: 'article',
       siteName: 'Shadow News',
       locale: 'te_IN',
@@ -72,7 +73,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function NewsPreviewPage({ params }: PageProps) {
-  // Await params if it's a promise (Next.js 15 compatibility)
   const resolvedParams = typeof (params as any).then === 'function' 
     ? await (params as any) 
     : params;
@@ -98,133 +98,185 @@ export default async function NewsPreviewPage({ params }: PageProps) {
     notFound()
   }
 
-  // Parse imagesUrls safely
+  const code = news.shortCode || id
   const images: string[] = safeJsonParse<string[]>(news.imagesUrls, [])
   const imageUrl = news.thumbnailUrl || (images.length > 0 ? images[0] : null)
   const locationName = news.mandal?.name || news.district?.name || ''
+  const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.shadownews.app'
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7] flex flex-col items-center justify-center p-4 antialiased font-sans">
-      <div className="max-w-md w-full bg-white rounded-[24px] shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-        {/* Image Section - aspect ratio 4/3 */}
-        {imageUrl && (
-          <div className="relative w-full aspect-[4/3] bg-gray-100 flex items-center justify-center">
-            <img
-              src={imageUrl}
-              alt={news.title}
-              className="w-full h-full object-cover rounded-b-xl"
-            />
-            {/* Watermark overlay */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+    <div className="min-h-screen bg-[#F1F3F5] text-gray-900 antialiased font-sans flex flex-col pb-24">
+      {/* 1. TOP STICKY APP DOWNLOAD / OPEN BANNER */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm px-4 py-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <img
+            src="/logo.png"
+            alt="Shadow News Logo"
+            className="w-10 h-10 rounded-xl object-contain shadow-sm border border-red-100"
+          />
+          <div>
+            <h2 className="text-sm font-bold text-gray-900 leading-tight">Shadow News</h2>
+            <p className="text-[11px] text-gray-500">తెలుగు వార్తలు ఎప్పటికప్పుడు</p>
+          </div>
+        </div>
+        <button
+          onClick={undefined}
+          id="top-open-btn"
+          className="open-app-trigger px-3.5 py-1.5 bg-[#D32F2F] hover:bg-[#B71C1C] text-white text-xs font-bold rounded-full shadow-sm transition active:scale-95"
+        >
+          యాప్‌లో తెరవండి
+        </button>
+      </header>
+
+      {/* 2. MAIN NEWS ARTICLE CARD */}
+      <main className="max-w-lg w-full mx-auto px-3 pt-3 flex-1">
+        <article className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+          {/* Article Media Photo */}
+          {imageUrl && (
+            <div className="relative w-full aspect-[16/10] bg-gray-900 overflow-hidden">
               <img
-                src="/logo.png"
-                alt="Shadow News Watermark"
-                className="w-28 h-auto opacity-15 object-contain"
+                src={imageUrl}
+                alt={news.title}
+                className="w-full h-full object-cover"
               />
-            </div>
-          </div>
-        )}
-
-        {/* Content Section */}
-        <div className="p-4 flex-1 flex flex-col">
-          {/* Metadata Strip: card_strip, slogan, location */}
-          <div className="mb-3 px-2 py-1.5 bg-black rounded-md flex justify-between items-center gap-2">
-            <img
-              src="/card_strip.jpeg"
-              alt="Strip"
-              className="h-6 object-contain"
-            />
-            
-            {/* Slogan */}
-            <div className="flex-1 text-center">
-              <span className="text-[10px] font-bold text-white tracking-tight whitespace-nowrap">
-                No.1 తెలుగు న్యూస్ డైలీ
-              </span>
-            </div>
-
-            {/* Location */}
-            {locationName && (
-              <div className="flex items-center gap-0.5 text-white/80 shrink-0">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span className="text-[11px] font-semibold">
-                  {locationName}
-                </span>
+              {/* Subtle Brand Watermark */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+                <img
+                  src="/logo.png"
+                  alt="Watermark"
+                  className="w-32 h-32 object-contain"
+                />
               </div>
-            )}
-          </div>
+              {/* Category Pill Overlay */}
+              {news.category?.name && (
+                <span className="absolute top-3 left-3 bg-red-600/90 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full backdrop-blur-sm shadow">
+                  {news.category.name}
+                </span>
+              )}
+            </div>
+          )}
 
-          <h1 className="text-xl font-bold text-gray-900 leading-snug mb-2">
-            {news.title}
-          </h1>
-          <p className="text-gray-700 leading-relaxed text-sm mb-6 flex-1">
-            {news.shortDesc}
-          </p>
-
-          {/* Reporter & Time Row */}
-          <div className="flex items-center gap-2 mb-6 border-t border-gray-100 pt-4 mt-auto">
-            {news.reporter && (
+          {/* Article Content */}
+          <div className="p-4 sm:p-5 flex flex-col">
+            {/* Metadata Bar */}
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-2.5 pb-2 border-b border-gray-100">
               <div className="flex items-center gap-1.5">
-                {news.reporter.avatar ? (
-                  <img
-                    src={news.reporter.avatar}
-                    alt={news.reporter.name || 'Reporter'}
-                    className="w-5 h-5 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
-                    <svg className="w-3.5 h-3.5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                      <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
-                    </svg>
-                  </div>
+                {locationName && (
+                  <span className="font-semibold text-red-600 flex items-center gap-0.5">
+                    📍 {locationName}
+                  </span>
                 )}
-                <span className="text-xs font-semibold text-gray-700">
-                  By {news.reporter.name || 'Reporter'}
+                {locationName && <span>•</span>}
+                <span>
+                  {new Date(news.publishedAt || news.createdAt).toLocaleDateString('te-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
                 </span>
               </div>
-            )}
-            
-            {news.reporter && <span className="text-gray-300 text-xs">•</span>}
-            
-            <span className="text-xs text-gray-500">
-              {new Date(news.publishedAt || news.createdAt).toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric'
-              })}
-            </span>
-          </div>
+              {news.reporter?.name && (
+                <span className="text-gray-600 font-medium">
+                  రిపోర్టర్: {news.reporter.name}
+                </span>
+              )}
+            </div>
 
-          {/* CTA Button */}
-          <a
-            id="open-app-btn"
-            href={`https://play.google.com/store/apps/details?id=com.shadownews.app`}
-            className="w-full py-3.5 bg-[#D32F2F] hover:bg-[#B71C1C] text-white font-semibold rounded-2xl text-center shadow-md shadow-red-200 transition-all block duration-200"
+            {/* Headline */}
+            <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 leading-snug mb-3">
+              {news.title}
+            </h1>
+
+            {/* Description / Body */}
+            <div className="text-gray-800 text-[15px] sm:text-base leading-relaxed mb-6 whitespace-pre-line font-normal">
+              {news.content || news.shortDesc || ''}
+            </div>
+
+            {/* Download App In-Feed Call To Action Card */}
+            <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl p-4 border border-red-100 text-center mb-2">
+              <p className="text-sm font-bold text-gray-900 mb-1">
+                ఇలాంటి మరిన్ని తాజా వార్తల కోసం
+              </p>
+              <p className="text-xs text-gray-600 mb-3">
+                షాడో న్యూస్ అధికారిక యాప్‌ను డౌన్‌లోడ్ చేసుకోండి.
+              </p>
+              <a
+                href={playStoreUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#D32F2F] hover:bg-[#B71C1C] text-white text-sm font-bold rounded-xl shadow-md transition active:scale-95"
+              >
+                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                  <path d="M3 20.5v-17c0-.83.67-1.5 1.5-1.5.32 0 .62.1.86.29l12.43 8.5c.61.42.76 1.25.34 1.86-.1.14-.22.26-.34.34L5.36 21.71c-.24.19-.54.29-.86.29-.83 0-1.5-.67-1.5-1.5z" />
+                </svg>
+                Google Play లో డౌన్‌లోడ్ చేయండి
+              </a>
+            </div>
+          </div>
+        </article>
+      </main>
+
+      {/* 3. FIXED BOTTOM BAR (DIRECT APP OPEN OR PLAY STORE DOWNLOAD) */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200 px-4 py-3 shadow-lg">
+        <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-gray-900 truncate">Shadow News App</p>
+            <p className="text-[11px] text-gray-500 truncate">నోటిఫికేషన్స్ & వీడియోలు</p>
+          </div>
+          <button
+            id="bottom-open-btn"
+            className="open-app-trigger px-5 py-2.5 bg-[#D32F2F] hover:bg-[#B71C1C] text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition active:scale-95 flex items-center gap-1.5 shrink-0"
           >
-            యాప్‌లో చదవండి (Open in App)
-          </a>
+            యాప్‌లో తెరవండి (Open)
+          </button>
         </div>
       </div>
+
+      {/* 4. SMART CLIENT-SIDE INTENT SCRIPT */}
+      {/* If app is installed, smoothly wakes app to this article. If not installed, user stays on web & can click download */}
       <script
         dangerouslySetInnerHTML={{
           __html: `
-            var isAndroid = /Android/i.test(navigator.userAgent);
-            var btn = document.getElementById('open-app-btn');
-            if (isAndroid) {
-              var intentUrl = "intent://m.shadownews.in/p/${news.shortCode || id}#Intent;scheme=https;package=com.shadownews.app;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.shadownews.app;end";
-              if (btn) btn.href = intentUrl;
-              setTimeout(function() {
-                window.location.href = intentUrl;
-              }, 300);
-            }
-          `
+            (function() {
+              var articleCode = ${JSON.stringify(code)};
+              var playStoreLink = ${JSON.stringify(playStoreUrl)};
+              var isAndroid = /Android/i.test(navigator.userAgent);
+
+              // Standard Android Intent syntax
+              var directAppIntent = "intent://www.shadownews.in/p/" + articleCode + "#Intent;scheme=https;package=com.shadownews.app;S.browser_fallback_url=" + encodeURIComponent(playStoreLink) + ";end";
+
+              function openInAppOrStore() {
+                if (isAndroid) {
+                  window.location.href = directAppIntent;
+                } else {
+                  window.location.href = playStoreLink;
+                }
+              }
+
+              // Bind all open buttons
+              var buttons = document.querySelectorAll('.open-app-trigger');
+              buttons.forEach(function(btn) {
+                btn.addEventListener('click', openInAppOrStore);
+              });
+
+              // On page load for Android: attempt silent check to launch the app if installed
+              if (isAndroid) {
+                // If user tapped a link directly from WhatsApp/Telegram, attempt smooth app link open
+                var silentIntent = "intent://www.shadownews.in/p/" + articleCode + "#Intent;scheme=https;package=com.shadownews.app;end";
+                var iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = silentIntent;
+                document.body.appendChild(iframe);
+                setTimeout(function() {
+                  if (iframe && iframe.parentNode) {
+                    iframe.parentNode.removeChild(iframe);
+                  }
+                }, 1000);
+              }
+            })();
+          `,
         }}
       />
-      <p className="text-gray-400 text-xs mt-6">
-        © {new Date().getFullYear()} Shadow News. All rights reserved.
-      </p>
     </div>
   )
 }
