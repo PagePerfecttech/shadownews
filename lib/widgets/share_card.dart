@@ -10,6 +10,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import '../api/api_client.dart';
 import '../theme/app_theme.dart';
+import '../utils/short_code_util.dart';
 
 Future<Uint8List?> preloadImageBytes(String imageUrl) async {
   if (imageUrl.isEmpty || (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://'))) {
@@ -511,8 +512,11 @@ Future<void> shareNewsAsImage({
       onBeforeShare();
     }
 
-    // Short alphanumeric share link as ID (e.g. https://www.shadownews.in/p/aB3x9)
-    final cleanId = newsId.trim();
+    // Short alphanumeric share link as ID (strictly 5 characters, e.g. https://www.shadownews.in/p/aB3x9)
+    final rawCleanId = newsId.trim();
+    final cleanId = rawCleanId.length == 5
+        ? rawCleanId
+        : getDeterministicShortCode(rawCleanId);
     final dynamicLink = 'https://www.shadownews.in/p/$cleanId';
     final cleanTitle = title.trim();
 

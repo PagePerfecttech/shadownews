@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../config.dart';
 import '../api/api_client.dart';
+import '../utils/short_code_util.dart';
 import 'comments_sheet.dart';
 import 'news_inline_video_player.dart';
 
@@ -612,7 +613,7 @@ class _NewsCardState extends State<NewsCard> {
       }
     } else if (action == 'copy_link') {
       String shortCode = (widget.news['short_code'] ?? widget.news['shortCode'])?.toString() ?? '';
-      if (shortCode.isEmpty || shortCode.length > 5) {
+      if (shortCode.length != 5) {
         if (newsId.length == 5) {
           shortCode = newsId;
         } else {
@@ -621,7 +622,7 @@ class _NewsCardState extends State<NewsCard> {
             if (res.data != null && res.data['news'] != null) {
               final fetched = res.data['news'];
               final fetchedCode = (fetched['short_code'] ?? fetched['shortCode'])?.toString() ?? '';
-              if (fetchedCode.isNotEmpty && fetchedCode.length <= 5) {
+              if (fetchedCode.length == 5) {
                 shortCode = fetchedCode;
                 widget.news['short_code'] = fetchedCode;
                 widget.news['shortCode'] = fetchedCode;
@@ -630,8 +631,8 @@ class _NewsCardState extends State<NewsCard> {
           } catch (_) {}
         }
       }
-      if (shortCode.isEmpty) {
-        shortCode = newsId;
+      if (shortCode.length != 5) {
+        shortCode = getDeterministicShortCode(newsId.isNotEmpty ? newsId : shortCode);
       }
       final link = 'https://www.shadownews.in/p/$shortCode';
       await Clipboard.setData(ClipboardData(text: link));
@@ -711,7 +712,7 @@ class _NewsCardState extends State<NewsCard> {
     final description = shortDesc.isNotEmpty ? shortDesc : fullContent;
     final categoryName = (n['category'] is Map ? n['category']['name'] : n['category'])?.toString() ?? '';
     final reporterName = (n['reporter_name'] ?? n['reporter']?['name'] ?? 'Shadow News').toString();
-    final shortCode = (n['short_code'] ?? n['shortCode'] ?? n['id'] ?? '').toString();
+    final shortCode = resolveNewsShortCode(n);
 
     final rawImageUrl = n['thumbnailUrl'] ??
         n['thumbnail_url'] ??

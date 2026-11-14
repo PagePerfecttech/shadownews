@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_client.dart';
+import '../utils/short_code_util.dart';
 import '../widgets/share_card.dart';
 import '../widgets/native_ad_widget.dart';
 import '../services/ad_manager.dart';
@@ -558,11 +559,11 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
 
   Future<String> _resolveShortCode(Map<dynamic, dynamic> news) async {
     final existingShort = (news['short_code'] ?? news['shortCode'])?.toString().trim() ?? '';
-    if (existingShort.isNotEmpty && existingShort.length <= 5) {
+    if (existingShort.length == 5) {
       return existingShort;
     }
     final rawId = news['id']?.toString().trim() ?? '';
-    if (rawId.isNotEmpty && rawId.length <= 5) {
+    if (rawId.length == 5) {
       return rawId;
     }
     if (rawId.isNotEmpty) {
@@ -571,7 +572,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
         if (res.data != null && res.data['news'] != null) {
           final fetched = res.data['news'];
           final fetchedCode = (fetched['short_code'] ?? fetched['shortCode'])?.toString().trim() ?? '';
-          if (fetchedCode.isNotEmpty && fetchedCode.length <= 5) {
+          if (fetchedCode.length == 5) {
             news['short_code'] = fetchedCode;
             news['shortCode'] = fetchedCode;
             return fetchedCode;
@@ -579,8 +580,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
         }
       } catch (_) {}
     }
-    if (existingShort.isNotEmpty) return existingShort;
-    return rawId;
+    final fallback5 = getDeterministicShortCode(rawId.isNotEmpty ? rawId : existingShort);
+    news['short_code'] = fallback5;
+    news['shortCode'] = fallback5;
+    return fallback5;
   }
 
   @override

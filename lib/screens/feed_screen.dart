@@ -20,6 +20,7 @@ import 'dart:async';
 import '../utils/events.dart';
 import '../services/app_update_service.dart';
 import '../services/in_app_review_service.dart';
+import '../utils/short_code_util.dart';
 
 enum NewsFilterType { local, state }
 
@@ -653,7 +654,7 @@ class _FeedScreenState extends State<FeedScreen> {
         item['reporter_name']?.toString() ??
         item['author']?.toString() ??
         '';
-    final shortCode = (item['shortCode'] ?? item['id'] ?? '').toString();
+    final shortCode = resolveNewsShortCode(item);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
@@ -1140,11 +1141,11 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<String> _resolveShortCode(Map<dynamic, dynamic> news) async {
     final existingShort = (news['short_code'] ?? news['shortCode'])?.toString().trim() ?? '';
-    if (existingShort.isNotEmpty && existingShort.length <= 5) {
+    if (existingShort.length == 5) {
       return existingShort;
     }
     final rawId = news['id']?.toString().trim() ?? '';
-    if (rawId.isNotEmpty && rawId.length <= 5) {
+    if (rawId.length == 5) {
       return rawId;
     }
     if (rawId.isNotEmpty) {
@@ -1153,7 +1154,7 @@ class _FeedScreenState extends State<FeedScreen> {
         if (res.data != null && res.data['news'] != null) {
           final fetched = res.data['news'];
           final fetchedCode = (fetched['short_code'] ?? fetched['shortCode'])?.toString().trim() ?? '';
-          if (fetchedCode.isNotEmpty && fetchedCode.length <= 5) {
+          if (fetchedCode.length == 5) {
             news['short_code'] = fetchedCode;
             news['shortCode'] = fetchedCode;
             return fetchedCode;
@@ -1161,8 +1162,10 @@ class _FeedScreenState extends State<FeedScreen> {
         }
       } catch (_) {}
     }
-    if (existingShort.isNotEmpty) return existingShort;
-    return rawId;
+    final fallback5 = getDeterministicShortCode(rawId.isNotEmpty ? rawId : existingShort);
+    news['short_code'] = fallback5;
+    news['shortCode'] = fallback5;
+    return fallback5;
   }
 
   @override
