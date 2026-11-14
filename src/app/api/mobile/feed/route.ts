@@ -6,7 +6,7 @@ import { safeJsonParse } from '@/lib/json-utils'
 import { rankAndMixArticles } from '@/lib/recommendation-engine'
 import { getCache, setCache, getFeedCacheHeaders } from '@/lib/cache'
 import { injectAdsIntoFeedCards, getActiveCustomAds } from '@/lib/ad-engine'
-import { generateRandomShortCode } from '@/lib/short-code'
+import { generateRandomShortCode, generateDeterministicShortCode } from '@/lib/short-code'
 
 const feedQuerySchema = z.object({
   village_id: z.string().cuid().optional(),
@@ -206,11 +206,11 @@ export async function GET(request: NextRequest) {
         avatar: reporterAvatar || null,
       };
       let code = item.shortCode;
-      if (!code || code.trim() === '') {
-        if (item.id && item.id.length <= 5) {
+      if (!code || code.trim() === '' || code.length !== 5) {
+        if (item.id && item.id.length === 5) {
           code = item.id;
         } else {
-          code = generateRandomShortCode(5);
+          code = generateDeterministicShortCode(item.id);
           db.news.update({ where: { id: item.id }, data: { shortCode: code } }).catch(() => {});
         }
       }
