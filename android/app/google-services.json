@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "620220523849",
+    "project_id": "shadownews-e1b6b",
+    "storage_bucket": "shadownews-e1b6b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:620220523849:android:b4d498c99e9c696ad7e698",
+        "android_client_info": {
+          "package_name": "com.shadownews.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3suUcFL83NjW43FrDT0ELeduHTvpToto"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
