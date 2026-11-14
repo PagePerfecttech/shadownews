@@ -623,6 +623,7 @@ export default function VideosPage() {
                 </Label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
+                    { name: 'Shadow News (Official)', handle: '@ShadowNewsMedia' },
                     { name: 'TV9 Telugu', handle: '@TV9TeluguLive' },
                     { name: 'Sakshi TV', handle: '@sakshitv' },
                     { name: 'NTV Telugu', handle: '@ntvtelugunews' },

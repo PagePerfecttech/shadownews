@@ -16,6 +16,7 @@ export interface YouTubeShortItem {
 }
 
 export const POPULAR_TELUGU_CHANNELS = [
+  { id: 'UC4MFxsRwnB2EnPYu4Bpntxw', handle: '@ShadowNewsMedia', name: 'Shadow News (Official)' },
   { id: 'UCPXTXMecYqnRKNdqdVOGSFg', handle: '@TV9TeluguLive', name: 'TV9 Telugu Live' },
   { id: 'UCZ9m4KOh8Ei60428xeGYDCQ', handle: '@sakshitv', name: 'Sakshi TV' },
   { id: 'UCd_x_1Fk98Zg90H_y0GjNqQ', handle: '@ntvtelugunews', name: 'NTV Telugu' },
@@ -27,7 +28,7 @@ export const POPULAR_TELUGU_CHANNELS = [
  * Resolve a YouTube Channel URL, @handle, or ID into a canonical YouTube channel ID (UC...)
  */
 export async function resolveChannelId(input: string): Promise<string | null> {
-  const trimmed = input.trim()
+  let trimmed = input.trim()
   if (!trimmed) return null
 
   // If already a 24-character UC ID
@@ -41,6 +42,31 @@ export async function resolveChannelId(input: string): Promise<string | null> {
     return channelUrlMatch[1]
   }
 
+  // Strip query parameters and subpaths like /videos, /shorts, /featured, /streams, /live, /community
+  trimmed = trimmed.split('?')[0].replace(/\/+$/, '')
+  trimmed = trimmed.replace(/\/(videos|shorts|featured|streams|live|community)$/i, '')
+
+  // Re-check channel match in case subpath was removed
+  const cleanChannelUrlMatch = trimmed.match(/\/channel\/(UC[\w-]{22})/i)
+  if (cleanChannelUrlMatch) {
+    return cleanChannelUrlMatch[1]
+  }
+
+  // Quick match against POPULAR_TELUGU_CHANNELS handles and IDs
+  for (const ch of POPULAR_TELUGU_CHANNELS) {
+    const handleClean = ch.handle.replace(/^@/, '').toLowerCase()
+    const inputLower = trimmed.toLowerCase()
+    if (
+      inputLower === ch.id.toLowerCase() ||
+      inputLower === ch.handle.toLowerCase() ||
+      inputLower === handleClean ||
+      inputLower.endsWith('/' + ch.handle.toLowerCase()) ||
+      inputLower.endsWith('/@' + handleClean)
+    ) {
+      return ch.id
+    }
+  }
+
   // Handle URL or @handle: @channel or https://www.youtube.com/@channel
   let targetUrl = trimmed
   if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
@@ -48,24 +74,52 @@ export async function resolveChannelId(input: string): Promise<string | null> {
   }
 
   try {
-    const { stdout } = await execFileAsync('curl.exe', [
-      '-s',
-      '-L',
-      '--max-time',
-      '10',
-      '-A',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      targetUrl,
-    ])
+    let html = ''
+    try {
+      const res = await fetch(targetUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        signal: AbortSignal.timeout(10000),
+      })
+      if (res.ok) {
+        html = await res.text()
+      }
+    } catch {
+      // Fallback to curl with 10MB buffer
+      try {
+        const { stdout } = await execFileAsync(
+          'curl.exe',
+          [
+            '-s',
+            '-L',
+            '--max-time',
+            '10',
+            '-A',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            targetUrl,
+          ],
+          { maxBuffer: 10 * 1024 * 1024 }
+        )
+        html = stdout
+      } catch (curlErr) {
+        console.warn(`Curl fallback failed for ${targetUrl}:`, curlErr)
+      }
+    }
 
-    const match =
-      stdout.match(/channel\/(UC[\w-]{22})/i) ||
-      stdout.match(/"channelId":"(UC[\w-]{22})"/i) ||
-      stdout.match(/"browseId":"(UC[\w-]{22})"/i) ||
-      stdout.match(/itemprop="identifier" content="(UC[\w-]{22})"/i)
+    if (html) {
+      const match =
+        html.match(/channel\/(UC[\w-]{22})/i) ||
+        html.match(/"channelId":"(UC[\w-]{22})"/i) ||
+        html.match(/"browseId":"(UC[\w-]{22})"/i) ||
+        html.match(/itemprop="identifier" content="(UC[\w-]{22})"/i) ||
+        html.match(/<meta itemprop="channelId" content="(UC[\w-]{22})"/i)
 
-    if (match && match[1]) {
-      return match[1]
+      if (match && match[1]) {
+        return match[1]
+      }
     }
   } catch (err) {
     console.warn(`Failed to resolve channel ID for ${input}:`, err)
@@ -77,21 +131,28 @@ export async function resolveChannelId(input: string): Promise<string | null> {
 /**
  * Fetch latest YouTube videos/shorts for a channel via public YouTube XML feed (No API Key Required)
  */
-export async function fetchYouTubeChannelVideos(channelId: string, limit: number = 10): Promise<YouTubeShortItem[]> {
+export async function fetchYouTubeChannelVideos(channelId: string, limit: number = 20): Promise<YouTubeShortItem[]> {
   const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
   try {
     let xml = ''
     try {
-      const { stdout } = await execFileAsync('curl.exe', ['-s', '-L', '--max-time', '10', url])
-      xml = stdout
-    } catch {
       const res = await fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         },
         signal: AbortSignal.timeout(10000),
       })
       if (res.ok) xml = await res.text()
+    } catch {
+      // Fallback to curl
+      try {
+        const { stdout } = await execFileAsync('curl.exe', ['-s', '-L', '--max-time', '10', url], {
+          maxBuffer: 5 * 1024 * 1024,
+        })
+        xml = stdout
+      } catch (curlErr) {
+        console.warn(`Curl feed fetch error for channel ${channelId}:`, curlErr)
+      }
     }
 
     if (!xml || xml.length < 50) {
@@ -130,7 +191,7 @@ export async function fetchYouTubeChannelVideos(channelId: string, limit: number
       const channelTitle = authorMatch ? stripHtml(authorMatch[1]) : 'Telugu News'
 
       const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-      const videoUrl = `https://www.youtube.com/shorts/${videoId}`
+      const videoUrl = `https://www.youtube.com/watch?v=${videoId}`
 
       items.push({
         videoId,
@@ -161,33 +222,48 @@ export async function importYouTubeVideoByUrl(rawUrl: string): Promise<{ success
     }
 
     const videoId = match[1]
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`
     const shortsUrl = `https://www.youtube.com/shorts/${videoId}`
 
     // Check existing
     const existing = await db.video.findFirst({
       where: {
         OR: [
+          { youtubeVideoId: videoId },
           { videoUrl: shortsUrl },
-          { videoUrl: `https://www.youtube.com/watch?v=${videoId}` },
+          { videoUrl },
           { videoUrl: rawUrl },
         ],
       },
     })
 
     if (existing) {
+      if (!existing.youtubeVideoId) {
+        await db.video.update({
+          where: { id: existing.id },
+          data: { youtubeVideoId: videoId },
+        }).catch(() => {})
+      }
       return { success: true, video: existing }
     }
 
     // Fetch details via oEmbed
     const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
-    const { stdout } = await execFileAsync('curl.exe', ['-s', '-L', '--max-time', '8', oembedUrl])
     let data: any = {}
     try {
-      data = JSON.parse(stdout)
+      const res = await fetch(oembedUrl, { signal: AbortSignal.timeout(8000) })
+      if (res.ok) {
+        data = await res.json()
+      }
     } catch {
-      data = {
-        title: 'Telugu News Shorts',
-        thumbnail_url: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      try {
+        const { stdout } = await execFileAsync('curl.exe', ['-s', '-L', '--max-time', '8', oembedUrl])
+        data = JSON.parse(stdout)
+      } catch {
+        data = {
+          title: 'Telugu News Video',
+          thumbnail_url: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+        }
       }
     }
 
@@ -198,13 +274,14 @@ export async function importYouTubeVideoByUrl(rawUrl: string): Promise<{ success
 
     const created = await db.video.create({
       data: {
-        title: data.title || 'Telugu News Shorts',
+        title: data.title || 'Telugu News Video',
         description: data.author_name ? `Reported by ${data.author_name}` : null,
-        videoUrl: shortsUrl,
+        videoUrl,
         thumbnailUrl: data.thumbnail_url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
         duration: 60,
         categoryId: defaultCategory?.id || null,
         status: 'published',
+        youtubeVideoId: videoId,
       },
     })
 
@@ -215,11 +292,11 @@ export async function importYouTubeVideoByUrl(rawUrl: string): Promise<{ success
 }
 
 /**
- * Import latest shorts from a specific channel (link, handle, or ID)
+ * Import latest shorts/videos from a specific channel (link, handle, or ID)
  */
 export async function importYouTubeShortsFromChannel(
   channelInput: string,
-  limit: number = 10
+  limit: number = 20
 ): Promise<{
   success: boolean
   channelId?: string
@@ -253,14 +330,22 @@ export async function importYouTubeShortsFromChannel(
     const existing = await db.video.findFirst({
       where: {
         OR: [
+          { youtubeVideoId: item.videoId },
           { videoUrl: item.videoUrl },
           { videoUrl: `https://www.youtube.com/watch?v=${item.videoId}` },
+          { videoUrl: `https://www.youtube.com/shorts/${item.videoId}` },
           { title: item.title },
         ],
       },
     })
 
     if (existing) {
+      if (!existing.youtubeVideoId) {
+        await db.video.update({
+          where: { id: existing.id },
+          data: { youtubeVideoId: item.videoId },
+        }).catch(() => {})
+      }
       skippedCount++
       continue
     }
@@ -275,6 +360,7 @@ export async function importYouTubeShortsFromChannel(
         categoryId: defaultCategory?.id || null,
         status: 'published',
         createdAt: item.publishedAt,
+        youtubeVideoId: item.videoId,
       },
     })
 
