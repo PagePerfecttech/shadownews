@@ -74,6 +74,20 @@ class _DistrictSelectionScreenState extends State<DistrictSelectionScreen> {
             color: isDark ? Colors.white : const Color(0xFF1A1A1A),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => context.go('/feed', extra: {'refresh': true}),
+            child: Text(
+              'Skip (స్కిప్)',
+              style: GoogleFonts.poppins(
+                color: const Color(0xFFD32F2F),
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

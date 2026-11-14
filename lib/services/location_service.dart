@@ -109,7 +109,7 @@ class LocationService {
       Position? position;
       try {
         position = await Geolocator.getLastKnownPosition();
-        position ??= await _getCurrentPositionSafely(const Duration(seconds: 4));
+        position ??= await _getCurrentPositionSafely(const Duration(seconds: 10));
       } catch (e) {
         debugPrint('GPS fetch error: $e');
       }

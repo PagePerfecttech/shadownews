@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../api/api_client.dart';
 import '../../services/location_service.dart';
@@ -158,33 +159,67 @@ class _StateSelectionScreenState extends State<StateSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        leading: Navigator.of(context).canPop()
-            ? IconButton(
-                icon: const Icon(
-                  Icons.arrow_back_rounded,
-                  color: Color(0xFF1A1A1A),
-                ),
-                onPressed: () => Navigator.of(context).pop(),
-              )
-            : null,
-        centerTitle: false,
-        title: Text(
-          'Select Your State',
-          style: GoogleFonts.poppins(
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1A1A1A),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAuthenticated = FirebaseAuth.instance.currentUser != null;
+
+    return PopScope(
+      canPop: !isAuthenticated && Navigator.of(context).canPop(),
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (isAuthenticated) {
+          context.go('/feed', extra: {'refresh': true});
+        } else if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        appBar: AppBar(
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_rounded,
+              color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+            ),
+            onPressed: () {
+              if (isAuthenticated) {
+                context.go('/feed', extra: {'refresh': true});
+              } else if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                context.go('/feed');
+              }
+            },
           ),
+          centerTitle: false,
+          title: Text(
+            'Select Your State',
+            style: GoogleFonts.poppins(
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => context.go('/feed', extra: {'refresh': true}),
+              child: Text(
+                'Skip (స్కిప్)',
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFFD32F2F),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
         ),
+        body: _buildBody(),
       ),
-      body: _buildBody(),
     );
   }
 

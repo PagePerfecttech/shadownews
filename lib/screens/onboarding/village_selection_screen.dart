@@ -80,13 +80,15 @@ class _VillageSelectionScreenState extends State<VillageSelectionScreen> {
           TextButton(
             onPressed: () => _finishOnboarding(null),
             child: Text(
-              'Skip',
+              'Skip (స్కిప్)',
               style: GoogleFonts.poppins(
                 color: const Color(0xFFD32F2F),
                 fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
             ),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(
@@ -144,8 +146,15 @@ class _VillageSelectionScreenState extends State<VillageSelectionScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFD32F2F),
                         foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                       ),
-                      child: const Text('Complete Onboarding'),
+                      child: Text(
+                        'Continue with Mandal / మండలంతో కొనసాగండి',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
@@ -155,12 +164,18 @@ class _VillageSelectionScreenState extends State<VillageSelectionScreen> {
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                itemCount: _filteredVillages.length,
+                itemCount: _filteredVillages.length + 1,
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 10),
                 itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _VillageCard(
+                      villageName: 'ఈ మండలం మొత్తం (Entire ${widget.mandalData['name']})',
+                      onTap: () => _finishOnboarding(null),
+                    );
+                  }
                   final village =
-                      _filteredVillages[index] as Map<String, dynamic>;
+                      _filteredVillages[index - 1] as Map<String, dynamic>;
                   return _VillageCard(
                     villageName: village['name'] ?? '',
                     onTap: () => _finishOnboarding(village),
