@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
       })
 
       const finalThumbnail = thumbnail || getFallbackImage(processed.categorySlug)
+      const importedFullContent = (item.content || item.description || item.title || '').trim()
 
       const newsId = await generate5CharNewsId()
       const created = await db.news.create({
@@ -68,10 +69,10 @@ export async function GET(request: NextRequest) {
           shortCode: newsId,
           title: processed.aiTitle || item.title,
           shortDesc: processed.aiShortDesc.substring(0, 500),
-          content: processed.aiContent,
+          content: importedFullContent,
           aiTitle: processed.aiTitle,
           aiShortDesc: processed.aiShortDesc,
-          aiContent: processed.aiContent,
+          aiContent: importedFullContent,
           aiStatus: processed.aiStatus,
           thumbnailUrl: finalThumbnail,
           imagesUrls: JSON.stringify([finalThumbnail]),

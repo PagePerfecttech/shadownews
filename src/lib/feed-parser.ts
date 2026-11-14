@@ -58,6 +58,25 @@ export function stripHtml(html: string): string {
     .trim()
 }
 
+export function stripHtmlPreserveParagraphs(html: string): string {
+  if (!html) return ''
+  const decoded = decodeHtml(html)
+  return decoded
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<figure[\s\S]*?<\/figure>/gi, '')
+    .replace(/<br\s*[\/]?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/h[1-6]>/gi, '\n\n')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n\s*\n/g, '\n\n')
+    .trim()
+}
+
 /**
  * Extracts candidate image URL from RSS XML chunk or HTML
  */
@@ -189,7 +208,7 @@ export function parseFeedXml(xmlText: string, feedUrl = '', limit = 15): RawFeed
     const contentMatch =
       /<content:encoded[^>]*>([\s\S]*?)<\/content:encoded>/i.exec(rawItem) ||
       /<content[^>]*>([\s\S]*?)<\/content>/i.exec(rawItem)
-    const cleanContent = contentMatch ? stripHtml(contentMatch[1]) : cleanDesc
+    const cleanContent = contentMatch ? stripHtmlPreserveParagraphs(contentMatch[1]) : (rawDesc ? stripHtmlPreserveParagraphs(rawDesc) : cleanDesc)
 
     // Source / Author
     const sourceMatch =

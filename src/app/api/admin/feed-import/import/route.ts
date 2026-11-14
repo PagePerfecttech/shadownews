@@ -72,9 +72,9 @@ export async function POST(request: NextRequest) {
         })
 
         const finalThumbnail = item.thumbnailUrl || getFallbackImage(processed.categorySlug)
-        const finalTitle = options.autoRewrite !== false ? processed.aiTitle : item.title
-        const finalShortDesc = options.autoRewrite !== false ? processed.aiShortDesc : (item.description || item.title)
-        const finalContent = options.autoRewrite !== false ? processed.aiContent : (item.content || item.description || item.title)
+        const importedFullContent = (item.content || item.description || item.title || '').trim()
+        const finalTitle = options.autoRewrite !== false ? (processed.aiTitle || item.title) : item.title
+        const finalShortDesc = options.autoRewrite !== false ? (processed.aiShortDesc || item.description || item.title) : (item.description || item.title)
 
         // Create News record with 5-character alphanumeric ID and shortCode
         const newsId = await generate5CharNewsId()
@@ -84,10 +84,10 @@ export async function POST(request: NextRequest) {
             shortCode: newsId,
             title: finalTitle,
             shortDesc: finalShortDesc.substring(0, 500),
-            content: finalContent,
+            content: importedFullContent,
             aiTitle: processed.aiTitle,
             aiShortDesc: processed.aiShortDesc,
-            aiContent: processed.aiContent,
+            aiContent: importedFullContent,
             aiStatus: processed.aiStatus,
             sourceType: 'feed_import',
             sourceUrl: item.link || null,

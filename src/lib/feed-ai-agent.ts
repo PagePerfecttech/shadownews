@@ -609,22 +609,19 @@ export async function processArticleWithAIAgent(
       const systemPrompt = `You are the Lead Telugu News Editor & AI Assistant for 'Shadow News' (షాడో న్యూస్), a hyperlocal mobile short news app for Telangana and Andhra Pradesh.
 
 TASK:
-1. Transform raw Telugu news into a crisp, engaging, objective "Short News" card with full reader detail support (similar to Inshorts / Way2News).
+1. Carefully summarize the full imported news content into a crisp, engaging 6-8 lines (60-80 words) short news summary (aiShortDesc) that will be displayed on the news card. It must cover: Who, What, Where, When, and Why. Remove all source watermarks/branding (e.g., "సాక్షి ప్రతినిధి", "టీవీ9", "ఈనాడు", etc.).
 2. Rewrite the headline into an eye-catching, factual Telugu title (MAX 75 CHARACTERS).
-3. Condense the summary into 6-8 lines (60-80 words) in professional, modern Telugu covering: Who, What, Where, When, and Why. Remove all source watermarks/branding (e.g., "సాక్షి ప్రతినిధి", "టీవీ9", "ఈనాడు", etc.). This is the short summary (aiShortDesc) that readers read at a glance on the news card.
-4. Provide a full, in-depth rewritten Telugu news article (aiContent, 250-400 words across 3 to 5 well-structured paragraphs with background, quotes/statements, step-by-step chronology, and significance). This complete article will be displayed when readers tap the "పూర్తి వివరాలు" (Full Details) button so they can read the complete news story.
-5. Identify the single best Category from this exact list: [${categorySlugs}].
-6. Identify the Location:
+3. Identify the single best Category from this exact list: [${categorySlugs}].
+4. Identify the Location:
    - State code: "TG" (Telangana), "AP" (Andhra Pradesh), or "ALL" (National/International).
    - District name: Choose the exact English name from this list if mentioned or clearly related: [${districtNames}]. If national/international, return null.
    - Mandal/Town: Local mandal or town name in Telugu or English if specifically mentioned, else null.
-7. Extract 2 to 4 key entities/topics for tags (e.g. "రేవంత్ రెడ్డి", "చంద్రబాబు", "హైకోర్టు", "ఐపీఎల్").
+5. Extract 2 to 4 key entities/topics for tags (e.g. "రేవంత్ రెడ్డి", "చంద్రబాబు", "హైకోర్టు", "ఐపీఎల్").
 
 Respond ONLY with a valid JSON object matching this schema without markdown fences:
 {
   "aiTitle": "క్రిస్ప్ తెలుగు హెడ్‌లైన్ (max 75 chars)",
-  "aiShortDesc": "6-8 లైన్లు / 60-80 పదాల షార్ట్ న్యూస్ సారాంశం (Summary)",
-  "aiContent": "250-400 పదాల పూర్తి వివరాలతో కూడిన సమగ్ర వ్యాసం (Complete in-depth rewritten article with paragraphs for 'పూర్తి వివరాలు')",
+  "aiShortDesc": "పూర్తి వార్తను సారాంశం చేసిన 6-8 లైన్లు / 60-80 పదాల షార్ట్ న్యూస్ (Card Summary)",
   "categorySlug": "one of the allowed slugs",
   "stateCode": "TG | AP | ALL",
   "districtName": "Exact district English name from list or null",
@@ -757,13 +754,15 @@ Raw Content: ${item.content || item.description || item.title}`
     if (tag.length >= 2 && tag.length <= 40) finalTags.add(tag)
   }
 
+  const importedFullContent = (item.content || item.description || item.title || '').trim()
+
   return {
     title: item.title,
-    shortDesc: aiShortDesc,
-    content: aiContent,
+    shortDesc: aiShortDesc, // AI summarized 6-8 lines for the news card
+    content: importedFullContent, // Complete content we imported
     aiTitle,
     aiShortDesc,
-    aiContent,
+    aiContent: importedFullContent,
     aiStatus: isGeminiUsed ? 'generated' : 'fallback',
     categoryId: matchedCategory.id,
     categorySlug: matchedCategory.slug,
