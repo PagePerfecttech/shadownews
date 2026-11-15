@@ -21,12 +21,17 @@ class MandalSelectionScreen extends StatefulWidget {
 class _MandalSelectionScreenState extends State<MandalSelectionScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<dynamic> _mandals = [];
+  List<dynamic> _allDistrictMandals = [];
   List<dynamic> _filteredMandals = [];
 
   @override
   void initState() {
     super.initState();
+    _allDistrictMandals = widget.districtData['districtMandals'] ?? [];
     _mandals = widget.districtData['mandals'] ?? [];
+    if (_mandals.isEmpty && _allDistrictMandals.isNotEmpty) {
+      _mandals = List.from(_allDistrictMandals);
+    }
     _filteredMandals = List.from(_mandals);
     _searchController.addListener(_onSearchChanged);
   }
@@ -43,10 +48,18 @@ class _MandalSelectionScreenState extends State<MandalSelectionScreen> {
       if (query.isEmpty) {
         _filteredMandals = List.from(_mandals);
       } else {
-        _filteredMandals = _mandals.where((m) {
+        var matches = _mandals.where((m) {
           final name = (m['name'] ?? '').toString().toLowerCase();
           return name.contains(query);
         }).toList();
+
+        if (matches.isEmpty && _allDistrictMandals.isNotEmpty) {
+          matches = _allDistrictMandals.where((m) {
+            final name = (m['name'] ?? '').toString().toLowerCase();
+            return name.contains(query);
+          }).toList();
+        }
+        _filteredMandals = matches;
       }
     });
   }
@@ -261,13 +274,8 @@ class _MandalSelectionScreenState extends State<MandalSelectionScreen> {
 
     await _subscribeToNotifications(prefs);
 
-    final villages = mandal['villages'] as List?;
     if (context.mounted) {
-      if (villages != null && villages.isNotEmpty) {
-        context.push('/onboarding/village', extra: mandal);
-      } else {
-        context.go('/feed', extra: {'refresh': true});
-      }
+      context.push('/onboarding/village', extra: mandal);
     }
   }
 }

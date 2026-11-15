@@ -133,14 +133,35 @@ class ApiClient {
 
         if (userData['stateId'] != null) {
           await prefs.setString('user_state_id', userData['stateId']);
+          if (prefs.getString('selected_state_id') == null) {
+            await prefs.setString('selected_state_id', userData['stateId']);
+          }
         }
         if (userData['districtId'] != null) {
           await prefs.setString('user_district_id', userData['districtId']);
+          if (prefs.getString('selected_district_id') == null) {
+            await prefs.setString('selected_district_id', userData['districtId']);
+          }
           // Location selected means onboarded
           hasOnboarded = true;
         }
+        if (userData['assemblyId'] != null) {
+          await prefs.setString('user_assembly_id', userData['assemblyId']);
+          if (prefs.getString('selected_assembly_id') == null) {
+            await prefs.setString('selected_assembly_id', userData['assemblyId']);
+          }
+        }
         if (userData['mandalId'] != null) {
           await prefs.setString('user_mandal_id', userData['mandalId']);
+          if (prefs.getString('selected_mandal_id') == null) {
+            await prefs.setString('selected_mandal_id', userData['mandalId']);
+          }
+        }
+        if (userData['villageId'] != null) {
+          await prefs.setString('user_village_id', userData['villageId']);
+          if (prefs.getString('selected_village_id') == null) {
+            await prefs.setString('selected_village_id', userData['villageId']);
+          }
         }
 
         // Save reporter-specific location & posting scope

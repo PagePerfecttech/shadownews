@@ -185,14 +185,19 @@ class _AssemblySelectionScreenState extends State<AssemblySelectionScreen> {
     await prefs.setString(
         'selected_assembly_name', assembly['name']?.toString() ?? '');
 
-    // Fallback: If assembly has no mandals, use district's mandals
-    final assemblyMandals = assembly['mandals'] as List?;
-    if ((assemblyMandals == null || assemblyMandals.isEmpty) && widget.districtData['mandals'] != null) {
-      assembly['mandals'] = widget.districtData['mandals'];
-    }
+    final districtMandals = widget.districtData['mandals'] as List? ?? [];
+    final assemblyMandals = assembly['mandals'] as List? ?? [];
+
+    final extraData = {
+      ...assembly,
+      'districtName': widget.districtData['name'],
+      'districtId': widget.districtData['id'],
+      'districtMandals': districtMandals,
+      'mandals': assemblyMandals.isNotEmpty ? assemblyMandals : districtMandals,
+    };
 
     if (context.mounted) {
-      context.push('/onboarding/mandal', extra: assembly);
+      context.push('/onboarding/mandal', extra: extraData);
     }
   }
 }

@@ -196,6 +196,9 @@ class _VillageSelectionScreenState extends State<VillageSelectionScreen> {
           'selected_village_id', village['id']?.toString() ?? '');
       await prefs.setString(
           'selected_village_name', village['name']?.toString() ?? '');
+    } else {
+      await prefs.remove('selected_village_id');
+      await prefs.remove('selected_village_name');
     }
 
     final isGuest = prefs.getBool('is_guest') ?? false;

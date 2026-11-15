@@ -45,7 +45,10 @@ class LocationService {
 
     try {
       Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.low,
+          timeLimit: Duration(seconds: 5),
+        ),
       ).then((pos) {
         timer?.cancel();
         if (!completer.isCompleted) {
@@ -74,31 +77,63 @@ class LocationService {
 
   Future<LocationResult> initGPSLocationWithDetails() async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      bool serviceEnabled = false;
+      try {
+        serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      } catch (_) {}
+
+      LocationPermission permission = LocationPermission.denied;
+      if (serviceEnabled) {
+        try {
+          permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+        } catch (_) {}
+      }
+
+      Position? position;
+      if (serviceEnabled &&
+          permission != LocationPermission.denied &&
+          permission != LocationPermission.deniedForever) {
+        try {
+          position = await Geolocator.getLastKnownPosition();
+          position ??= await _getCurrentPositionSafely(const Duration(seconds: 5));
+        } catch (e) {
+          debugPrint('GPS fetch error: $e');
+        }
+      }
+
+      // If we have GPS coordinates, match via GPS
+      if (position != null) {
+        debugPrint('GPS coordinates acquired: ${position.latitude}, ${position.longitude}');
+        final res = await _matchAndSaveLocation(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          source: 'GPS',
+        );
+        if (res.success) return res;
+      }
+
+      // Graceful Fallback: IP-based auto-detection
+      debugPrint('Attempting IP-based geolocation fallback...');
+      final ipRes = await _matchAndSaveLocation(
+        ipFallback: true,
+        source: 'Network',
+      );
+      if (ipRes.success) {
+        return ipRes;
+      }
+
       if (!serviceEnabled) {
-        debugPrint('Location services are disabled.');
         return LocationResult(
           success: false,
           status: LocationStatus.serviceDisabled,
-          message: 'GPS / స్థాన సేవలు ఆఫ్‌లో ఉన్నాయి. దయచేసి GPS ఆన్ చేయండి.',
+          message: 'GPS ఆఫ్‌లో ఉంది. దయచేసి GPS ఆన్ చేయండి లేదా కింద మాన్యువల్‌గా ఎంచుకోండి.',
         );
       }
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          debugPrint('Location permissions are denied');
-          return LocationResult(
-            success: false,
-            status: LocationStatus.permissionDenied,
-            message: 'లొకేషన్ అనుమతి నిరాకరించబడింది.',
-          );
-        }
-      }
-      
       if (permission == LocationPermission.deniedForever) {
-        debugPrint('Location permissions are permanently denied.');
         return LocationResult(
           success: false,
           status: LocationStatus.permissionDeniedForever,
@@ -106,32 +141,40 @@ class LocationService {
         );
       }
 
-      Position? position;
-      try {
-        position = await Geolocator.getLastKnownPosition();
-        position ??= await _getCurrentPositionSafely(const Duration(seconds: 10));
-      } catch (e) {
-        debugPrint('GPS fetch error: $e');
+      return LocationResult(
+        success: false,
+        status: LocationStatus.positionUnavailable,
+        message: 'స్థానాన్ని గుర్తించలేకపోయాము. దయచేసి కింద జాబితా నుండి ఎంచుకోండి.',
+      );
+    } catch (e) {
+      debugPrint('Failed to sync location via GPS: $e');
+      return LocationResult(
+        success: false,
+        status: LocationStatus.error,
+        message: 'లొకేషన్ లోపం ఏర్పడింది. దయచేసి మాన్యువల్‌గా ఎంచుకోండి.',
+      );
+    }
+  }
+
+  Future<LocationResult> _matchAndSaveLocation({
+    double? latitude,
+    double? longitude,
+    bool ipFallback = false,
+    String source = 'GPS',
+  }) async {
+    try {
+      final payload = <String, dynamic>{};
+      if (latitude != null && longitude != null) {
+        payload['latitude'] = latitude;
+        payload['longitude'] = longitude;
+      }
+      if (ipFallback) {
+        payload['ipFallback'] = true;
       }
 
-      if (position == null) {
-        debugPrint('Could not acquire valid GPS position.');
-        return LocationResult(
-          success: false,
-          status: LocationStatus.positionUnavailable,
-          message: 'GPS స్థానం లభించలేదు. దయచేసి కింద జాబితా నుండి మాన్యువల్‌గా ఎంచుకోండి.',
-        );
-      }
-
-      debugPrint('GPS coordinates matched: ${position.latitude}, ${position.longitude}');
-
-      // Call backend to match coordinates
       final response = await apiClient.post(
         '/locations/match-gps',
-        data: {
-          'latitude': position.latitude,
-          'longitude': position.longitude,
-        },
+        data: payload,
       );
 
       if (response.data != null && response.data['success'] == true) {
@@ -148,7 +191,7 @@ class LocationService {
         final oldDistrictId = prefs.getString('selected_district_id');
         final newDistrictId = district['id']?.toString() ?? '';
 
-        // Handle subscriptions
+        // Handle notification topics
         if (oldStateId != newStateId) {
           if (oldStateId != null && oldStateId.isNotEmpty) {
             await FirebaseMessaging.instance.unsubscribeFromTopic('state_$oldStateId');
@@ -172,55 +215,66 @@ class LocationService {
         await prefs.setString('selected_state_name', state['name']?.toString() ?? '');
         await prefs.setString('selected_district_id', newDistrictId);
         await prefs.setString('selected_district_name', district['name']?.toString() ?? '');
-        
+
         if (assembly != null) {
           await prefs.setString('selected_assembly_id', assembly['id']?.toString() ?? '');
           await prefs.setString('selected_assembly_name', assembly['name']?.toString() ?? '');
+        } else {
+          await prefs.remove('selected_assembly_id');
+          await prefs.remove('selected_assembly_name');
         }
+
         if (mandal != null) {
           await prefs.setString('selected_mandal_id', mandal['id']?.toString() ?? '');
           await prefs.setString('selected_mandal_name', mandal['name']?.toString() ?? '');
+        } else {
+          await prefs.remove('selected_mandal_id');
+          await prefs.remove('selected_mandal_name');
         }
+
         if (village != null) {
           await prefs.setString('selected_village_id', village['id']?.toString() ?? '');
           await prefs.setString('selected_village_name', village['name']?.toString() ?? '');
+        } else {
+          await prefs.remove('selected_village_id');
+          await prefs.remove('selected_village_name');
         }
 
-        // Save matched location to backend profile
+        // Save matched location to backend profile for logged in users
         final isGuest = prefs.getBool('is_guest') ?? false;
         if (!isGuest) {
-          await apiClient.post(
-            '/user/profile',
-            data: {
-              'stateId': newStateId,
-              'districtId': newDistrictId,
-              'assemblyId': assembly?['id']?.toString(),
-              'mandalId': mandal?['id']?.toString(),
-              'villageId': village?['id']?.toString(),
-            },
-          );
+          try {
+            await apiClient.post(
+              '/user/profile',
+              data: {
+                'stateId': newStateId,
+                'districtId': newDistrictId,
+                'assemblyId': assembly?['id']?.toString(),
+                'mandalId': mandal?['id']?.toString(),
+                'villageId': village?['id']?.toString(),
+              },
+            );
+          } catch (e) {
+            debugPrint('Error syncing profile location: $e');
+          }
         }
 
-        debugPrint('Successfully matched location using GPS: ${mandal?['name']}');
+        final locName = mandal?['name'] ?? district['name'] ?? state['name'];
         return LocationResult(
           success: true,
           status: LocationStatus.success,
-          message: 'స్థానాన్ని GPS ద్వారా స్వయంచాలకంగా గుర్తించబడింది!',
+          message: '$locName ప్రాంతం విజయవంతంగా గుర్తించబడింది!',
           data: data,
         );
       }
-      return LocationResult(
-        success: false,
-        status: LocationStatus.serverMatchFailed,
-        message: 'మీ ప్రాంతాన్ని సరిపోల్చలేకపోయాము. దయచేసి కింద మాన్యువల్‌గా ఎంచుకోండి.',
-      );
     } catch (e) {
-      debugPrint('Failed to sync location via GPS: $e');
-      return LocationResult(
-        success: false,
-        status: LocationStatus.error,
-        message: 'లొకేషన్ లోపం ఏర్పడింది. దయచేసి మాన్యువల్‌గా ఎంచుకోండి.',
-      );
+      debugPrint('Error matching location via API: $e');
     }
+
+    return LocationResult(
+      success: false,
+      status: LocationStatus.serverMatchFailed,
+      message: 'మీ ప్రాంతాన్ని సరిపోల్చలేకపోయాము. దయచేసి కింద మాన్యువల్‌గా ఎంచుకోండి.',
+    );
   }
 }
