@@ -100,7 +100,9 @@ export async function POST(request: NextRequest) {
     if (data.dob !== undefined) updateData.dob = data.dob ? new Date(data.dob) : null
     if (data.stateId !== undefined) updateData.stateId = data.stateId || null
     if (data.districtId !== undefined) updateData.districtId = data.districtId || null
+    if (data.assemblyId !== undefined) updateData.assemblyId = data.assemblyId || null
     if (data.mandalId !== undefined) updateData.mandalId = data.mandalId || null
+    if (data.villageId !== undefined) updateData.villageId = data.villageId || null
     if (data.preferredLanguage !== undefined) updateData.preferredLanguage = data.preferredLanguage
     if (data.preferredCategories !== undefined) {
       updateData.preferredCategories = safeJsonStringify(data.preferredCategories || [])
@@ -112,7 +114,9 @@ export async function POST(request: NextRequest) {
       include: {
         state: { select: { id: true, name: true } },
         district: { select: { id: true, name: true } },
+        assembly: { select: { id: true, name: true } },
         mandal: { select: { id: true, name: true } },
+        village: { select: { id: true, name: true } },
       },
     })
 
