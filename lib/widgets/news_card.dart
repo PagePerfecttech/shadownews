@@ -852,7 +852,7 @@ class _NewsCardState extends State<NewsCard> {
             ),
 
             // ==============================================================
-            // 2. MIDDLE TEXT CONTENT (HEADLINE + 6-8 LINES SUMMARY + "పూర్తి వివరాలు" BUTTON)
+            // 2. MIDDLE TEXT CONTENT (HEADLINE + 7-8 LINES SUMMARY)
             // ==============================================================
             Expanded(
               child: Padding(
@@ -926,77 +926,6 @@ class _NewsCardState extends State<NewsCard> {
                                   ),
                                 ),
                               ),
-
-                            // "పూర్తి వివరాలు" (Purthi Vivaralu / Full Details) Action Button (min 48dp touch target)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 10, bottom: 4),
-                              child: InkWell(
-                                onTap: () => _showFullNewsModal(
-                                  context: context,
-                                  title: title,
-                                  shortDesc: description,
-                                  fullContent: fullContent.isNotEmpty ? fullContent : description,
-                                  imageUrl: imageUrl,
-                                  locationName: locationName,
-                                  timeAgo: displayTimeAgo,
-                                  reporterName: reporterName,
-                                  categoryName: categoryName,
-                                  shortCode: shortCode,
-                                  isDark: isDark,
-                                ),
-                                borderRadius: BorderRadius.circular(24),
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    minHeight: 48,
-                                    minWidth: 150,
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: isDark ? const Color(0xFF2C1E1E) : const Color(0xFFFFF0F0),
-                                      borderRadius: BorderRadius.circular(24),
-                                      border: Border.all(
-                                        color: const Color(0xFFD32F2F).withValues(alpha: 0.5),
-                                        width: 1.5,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFFD32F2F).withValues(alpha: 0.10),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(
-                                          Icons.menu_book_rounded,
-                                          size: 18,
-                                          color: Color(0xFFD32F2F),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'పూర్తి వివరాలు',
-                                          style: GoogleFonts.notoSansTelugu(
-                                            fontSize: 14.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: const Color(0xFFD32F2F),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        const Icon(
-                                          Icons.arrow_forward_ios_rounded,
-                                          size: 13,
-                                          color: Color(0xFFD32F2F),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ),
